@@ -1,6 +1,6 @@
 // Gold Abyss X79: makes the app installable and lets it open offline.
-const CACHE = 'gold-abyss-x79-v2';
-const FILES = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png?v=2', './icons/icon-512.png?v=2'];
+const CACHE = 'gold-abyss-x79-v3';
+const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png?v=3', './icon-512.png?v=3'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))); self.clients.claim(); });
 self.addEventListener('fetch', e => {
