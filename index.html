@@ -474,10 +474,14 @@ const NAMES={NFP:'Non-Farm Payrolls',CPI:'Consumer Price Index (CPI)',PPI:'Produ
 const TYPES=Object.keys(NAMES);
 // FOMC decision days, 2 pm ET (federalreserve.gov). Add the next year here when the Fed publishes it.
 const FOMC_DATES=['2026-09-16','2026-10-28','2026-12-09','2027-01-27','2027-03-17','2027-04-28','2027-06-09','2027-07-28','2027-09-15','2027-10-27','2027-12-08','2028-01-26'];
-// hand-checked dates (UTC); they replace the automatic pattern for that type in that month
-const FIXED=[['ISM PMI','2026-10-01T14:00Z'],['NFP','2026-10-02T12:30Z'],['CPI','2026-10-14T12:30Z'],['PPI','2026-10-15T12:30Z'],['GDP','2026-10-29T12:30Z'],
- ['ISM PMI','2026-11-02T15:00Z'],['NFP','2026-11-06T13:30Z'],['CPI','2026-11-12T13:30Z'],['PPI','2026-11-13T13:30Z'],['GDP','2026-11-25T13:30Z'],
- ['ISM PMI','2026-12-01T15:00Z'],['NFP','2026-12-04T13:30Z'],['CPI','2026-12-10T13:30Z'],['PPI','2026-12-11T13:30Z']];
+// Official dates in US Eastern time, from the BLS 2026 release calendar, BEA release schedule and Census
+// economic indicators calendar (checked Oct 2026). They replace the automatic pattern for that type in that month.
+// When the agencies publish 2027 dates, add them here.
+const FIXED=[
+ ['ISM PMI','2026-10-01','10:00'],['NFP','2026-10-02','08:30'],['CPI','2026-10-14','08:30'],['PPI','2026-10-15','08:30'],['Retail Sales','2026-10-15','08:30'],['GDP','2026-10-29','08:30'],['PCE','2026-10-29','08:30'],
+ ['ISM PMI','2026-11-02','10:00'],['JOLTS','2026-11-03','10:00'],['NFP','2026-11-06','08:30'],['CPI','2026-11-10','08:30'],['PPI','2026-11-13','08:30'],['Retail Sales','2026-11-17','08:30'],['GDP','2026-11-25','08:30'],['PCE','2026-11-25','08:30'],
+ ['ISM PMI','2026-12-01','10:00'],['JOLTS','2026-12-01','10:00'],['NFP','2026-12-04','08:30'],['CPI','2026-12-10','08:30'],['PPI','2026-12-15','08:30'],['Retail Sales','2026-12-16','08:30'],['GDP','2026-12-23','08:30'],['PCE','2026-12-23','08:30']];
+const CAL_VER=2; // bump when the date rules change, so old automatic estimates get replaced
 
 const p2=n=>String(n).padStart(2,'0');
 const fmtET=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'});
@@ -508,9 +512,9 @@ function etToUtc(y,m,d,hh,mi){ // US Eastern: daylight time from 2nd Sun of Marc
 }
 function genEvents(now){
   const out=[],from=now-2*864e5,to=now+400*864e5;
-  const fixedMonths=new Set(FIXED.map(([t,iso])=>t+'|'+etDay(Date.parse(iso)).slice(0,7)));
+  const fixedMonths=new Set(FIXED.map(([t,d])=>t+'|'+d.slice(0,7)));
   const push=(type,[y,m,d],hh,mi,est=true)=>{const at=etToUtc(y,m,d,hh,mi);if(at>=from&&at<=to)out.push({type,at,est,key:type+'|'+ymd(y,m,d)})};
-  FIXED.forEach(([t,iso])=>{const at=Date.parse(iso);if(at>=from&&at<=to)out.push({type:t,at,est:true,key:keyOf(t,at)})});
+  FIXED.forEach(([t,d,tm])=>{const[y,m,dd]=d.split('-').map(Number),[hh,mi]=tm.split(':').map(Number);push(t,[y,m,dd],hh,mi,false)});
   FOMC_DATES.forEach(x=>{const[y,m,d]=x.split('-').map(Number);push('FOMC',[y,m,d],14,0,false);
     const mn=new Date(Date.UTC(y,m-1,d+21));push('FOMC Minutes',[mn.getUTCFullYear(),mn.getUTCMonth()+1,mn.getUTCDate()],14,0,false)});
   const[sy,sm]=etDay(now).split('-').map(Number);
@@ -519,21 +523,31 @@ function genEvents(now){
     const mon=(t,arr,hh,mi)=>{if(!fixedMonths.has(t+'|'+ym))push(t,arr,hh,mi)};
     mon('ISM PMI',[y,m,nthBiz(y,m,1)],10,0);                       // 1st business day
     mon('ISM Services',[y,m,nthBiz(y,m,3)],10,0);                  // 3rd business day
-    mon('JOLTS',biz(y,m,nthWd(y,m,2,1)),10,0);                     // around the 1st Tuesday
-    let f=nthWd(y,m,5,1);if(!isBiz(y,m,f))f+=7;mon('NFP',[y,m,f],8,30); // 1st Friday
+    // NFP: third Friday after the week that contains the 12th of last month (BLS rule)
+    const pm=m===1?[y-1,12]:[y,m-1],w12=dowOf(pm[0],pm[1],12),sat=new Date(Date.UTC(pm[0],pm[1]-1,12+(6-w12)+20));
+    let nfp=[sat.getUTCFullYear(),sat.getUTCMonth()+1,sat.getUTCDate()];
+    if(!isBiz(...nfp))nfp=nfp[2]===1?[nfp[0],nfp[1],8]:biz(nfp[0],nfp[1],nfp[2],-1); // New Year: a week later; other holidays: day before
+    mon('NFP',nfp,8,30);
+    // JOLTS: the Tuesday of the jobs-report week (so some months have two, some none)
+    const jt=new Date(Date.UTC(nfp[0],nfp[1]-1,nfp[2]-((dowOf(...nfp)-2+7)%7)));
+    mon('JOLTS',[jt.getUTCFullYear(),jt.getUTCMonth()+1,jt.getUTCDate()],10,0);
     let c=10;while(dowOf(y,m,c)!==3)c++;const cpi=biz(y,m,c);mon('CPI',cpi,8,30); // Wednesday on/after the 10th
     mon('PPI',biz(cpi[0],cpi[1],cpi[2]+1),8,30);                   // day after CPI
-    let r=14;while(!isBiz(y,m,r)||dowOf(y,m,r)===1)r++;mon('Retail Sales',[y,m,r],8,30); // mid-month
-    mon('PCE',biz(y,m,lastWd(y,m,5),-1),8,30);                     // last Friday
-    mon('GDP',biz(y,m,lastWd(y,m,4),-1),8,30);                     // last Thursday
+    let r=15;while(!isBiz(y,m,r)||dowOf(y,m,r)===1)r++;mon('Retail Sales',[y,m,r],8,30); // mid-month
+    // GDP and PCE now come out together, usually the last Thursday (a week earlier in December)
+    const gdp=biz(y,m,lastWd(y,m,4)-(m===12?7:0),-1);
+    mon('GDP',gdp,8,30);mon('PCE',gdp,8,30);
     for(let d=nthWd(y,m,4,1);d<=dim(y,m);d+=7)push('Claims',biz(y,m,d,-1),8,30); // every Thursday
   }
   return out;
 }
 let deleted=new Set(store.get('deleted',[]));
 let events=store.get('events',null)||[];
+const untouched=e=>!e.fc&&!e.pv&&!e.tone&&!Object.values(e.v||{}).some(x=>x&&(x.fc||x.pv||x.ac));
 function syncEvents(){
   const now=Date.now(),cut=etDay(now-120*864e5);
+  if(store.get('calVer',1)<CAL_VER){ // date rules changed: replace old automatic dates you haven't touched
+    events=events.filter(e=>!(e.est&&!e.edited&&e.at>now-3*864e5&&untouched(e)));store.set('calVer',CAL_VER)}
   events.forEach(e=>{if(!e.id)e.id=uid();if(!e.key)e.key=keyOf(e.type,e.at)});
   deleted=new Set([...deleted].filter(k=>(k.split('|')[1]||'')>=cut));store.set('deleted',[...deleted]);
   const have=new Set(events.map(e=>e.key));let added=0;
@@ -663,7 +677,7 @@ $('#d-save').onclick=()=>{
   const d=$('#d-date').value,t=$('#d-time').value;if(!d||!t){toast('Fill in the date and time first');return}
   const at=Date.parse(`${d}T${t}:00+08:00`);
   const data={type:$('#d-type').value,name:$('#d-name').value.trim()||$('#d-type').value,at,fc:$('#d-fc').value.trim(),pv:$('#d-pv').value.trim(),est:false};
-  let tgt;if(editing){Object.assign(editing,data);editing.fired=false;tgt=editing}else{tgt={id:uid(),remind:false,key:keyOf(data.type,at),...data};events.push(tgt)}
+  let tgt;if(editing){Object.assign(editing,data,{edited:true});editing.fired=false;tgt=editing}else{tgt={id:uid(),remind:false,key:keyOf(data.type,at),...data};events.push(tgt)}
   const v=vals(tgt),c0=compsOf(tgt.type)[0];if(c0)v[c0.k]={...(v[c0.k]||{}),fc:data.fc,pv:data.pv};
   saveEv();renderCal();dlg.close();toast('Event saved');
 };
