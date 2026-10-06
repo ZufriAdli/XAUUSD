@@ -38,7 +38,8 @@
   --gold:#D9BC7C;--gold-fill:#CFAE68;--gold-hover:#DDBF80;--on-gold:#19110C;--buy:#8FD9AE;--sell:#F29A8C;--foil:linear-gradient(176deg,#F8EBC6 0%,#E3C47F 38%,#B48C42 52%,#D8B86F 70%,#F1DDA5 100%);--glow:.07;color-scheme:dark}
 :root[data-theme="ivory"]{--bg:#FFFFFF;--soft:#F8F6F1;--field:#FFFFFF;--ink:#1B1A17;--muted:#6E6A62;--line:#E8E4DA;--hair:#D9CDB0;--header:rgba(255,255,255,.92);--ph:#A8A398;--btn-hover:#000000;
   --gold:#9C7A33;--gold-fill:#C6A25A;--gold-hover:#B8944C;--on-gold:#FFFFFF;--buy:#1E7552;--sell:#AE3F3B;--foil:linear-gradient(176deg,#D9B56A 0%,#B08A3E 40%,#86641F 55%,#A9853A 72%,#C9A55C 100%);--glow:0;color-scheme:light}
-html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 80px)}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 80px);scrollbar-gutter:stable}
+/* always keep room for the scrollbar, so short pages (no scrollbar) and long pages (scrollbar) line up exactly */
 /* show at 75% size on computers (phones and tablets stay at 100%) */
 @media (min-width:1024px) and (pointer:fine){html{zoom:.75}body{min-height:calc(100vh / .75);min-height:calc(100dvh / .75)}
   /* the chart library reads mouse positions without CSS zoom, so cancel the zoom inside the chart */
@@ -158,6 +159,9 @@ td.fp b{color:var(--ink)}
 /* analysis: one column */
 .step{padding:30px 0;border-top:1px solid var(--line)}
 .step:first-of-type{border-top:1px solid var(--hair)}
+/* no divider straight under a page title, so every page header looks the same */
+.toolbar+.step,.toolbar+#result+.step{border-top:0;padding-top:0}
+#result:not(:empty){margin-bottom:34px}
 .step h3{font-size:24px;margin-bottom:16px;display:flex;gap:12px;align-items:baseline}
 .step h3 i{font-size:18px;color:var(--gold)}
 .form{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
@@ -312,6 +316,10 @@ footer{border-top:1px solid var(--line);padding:28px 0;color:var(--muted);font-s
 @media (max-width:700px){.zform{grid-template-columns:1fr 1fr}.zform .wide{grid-column:1/-1}.zones li{grid-template-columns:56px 1fr auto;gap:10px}.zones .zd{grid-column:2;text-align:left}}
 .sw{display:inline-flex;flex-direction:row;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer}
 .sw input{width:auto;accent-color:var(--gold-fill)}
+.za{display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px;padding:14px 16px;margin:0 0 10px;border:1px solid var(--hair);border-radius:14px;background:var(--soft)}
+.za .za-main{color:var(--ink);font-size:15px}
+.za select{width:auto;flex:0 1 320px}
+#za-status b.Buy{color:var(--buy)}#za-status b.Sell{color:var(--sell)}
 nav button svg{vertical-align:-3px}
 @media (max-width:640px){nav .nl{display:none}}
 @media (max-width:380px){.brand{display:none}}
@@ -489,6 +497,12 @@ nav button svg{vertical-align:-3px}
 
     <div class="block" style="margin-top:40px">
       <div class="block-h"><h2>Buy and sell zones</h2><label class="sw"><input type="checkbox" id="z-auto"> Show auto zones</label></div>
+      <div class="za">
+        <label class="sw za-main"><input type="checkbox" id="za-on"> Alert me when price enters a zone</label>
+        <select id="za-which" aria-label="Which zones to alert on"><option value="good">Strong and good zones, AI zones and yours</option><option value="all">All zones, including weak ones</option></select>
+        <label class="sw"><input type="checkbox" id="za-sound"> Sound</label>
+      </div>
+      <p class="note" id="za-status" style="margin:0 0 14px"></p>
       <p class="note" id="tv-note" style="margin-bottom:12px" hidden>The live chart comes straight from TradingView, so the app can't draw on it. Use these zones as levels, or draw them yourself with TradingView's rectangle tool. Switch to <b>Zones chart</b> to see them drawn automatically with the Ask line and bar countdown.</p>
       <p class="note" style="margin-bottom:16px">Auto zones combine order blocks (OB), fair value gaps (FVG), liquidity swings, the previous day's high and low (PDH/PDL), round $10 levels and today's VWAP. Broken or filled zones are removed, untested zones score higher, and the best three on each side are shown. Each zone has a scalp plan: enter at the zone edge, stop just beyond it, target the next opposite zone or 2R. AI zones come from your latest AI analysis. Zones against your latest bias are faded.</p>
       <ul class="zones" id="zone-list"></ul>
@@ -538,6 +552,40 @@ nav button svg{vertical-align:-3px}
         </label>
       </div>
       <p class="set-note">Alerts are checked by this page, so they only fire while the app is open. A background tab is fine, but if you close the app or your phone puts it to sleep, the alert is missed.</p>
+    </div>
+
+    <div class="step">
+      <h3>Telegram alerts, even with your phone off</h3>
+      <p class="set-note">A small free robot on Cloudflare checks the price every minute and messages you on Telegram before each news release and when price enters a Buy or Sell zone. Set it up once (steps in the guide), then paste its address and password here.</p>
+      <div class="form">
+        <label class="full">Robot address <small>your worker URL, e.g. https://gold-alerts.yourname.workers.dev</small><input id="tg-url" inputmode="url" autocomplete="off" placeholder="https://….workers.dev"></label>
+        <label class="full">Robot password <small>the APP_SECRET you set in the worker</small><input id="tg-secret" type="password" autocomplete="off"></label>
+      </div>
+      <div class="za" style="margin-top:16px">
+        <label class="sw za-main"><input type="checkbox" id="tg-news"> News alerts</label>
+        <label class="sw za-main"><input type="checkbox" id="tg-zones"> Zone alerts</label>
+        <span class="muted" style="font-size:13px">Zone alerts use the timeframe and zone choice on the Chart page.</span>
+      </div>
+      <div class="cta" style="margin-top:14px">
+        <button class="btn small" id="tg-link">Connect</button>
+        <button class="btn small ghost" id="tg-test">Send test</button>
+      </div>
+      <p class="set-note" id="tg-status" style="margin-top:14px"></p>
+    </div>
+
+    <div class="step">
+      <h3>Alerts on your phone, even when the app is closed</h3>
+      <p class="set-note">Add the upcoming releases to your phone's calendar. Each one rings at the time you chose above and again 1 minute before, even with the app closed and the phone locked.</p>
+      <div class="form" style="margin-bottom:16px">
+        <label>Which releases
+          <select id="ics-scope"><option value="key">Market movers: NFP, CPI, PPI, PCE, FOMC, GDP, Retail Sales</option><option value="all">All releases in the calendar</option></select>
+        </label>
+        <label>How far ahead
+          <select id="ics-days"><option value="30">Next 30 days</option><option value="90" selected>Next 3 months</option><option value="365">Next 12 months</option></select>
+        </label>
+      </div>
+      <div class="cta"><button class="btn small" id="ics-add">Add to phone calendar</button></div>
+      <p class="set-note" style="margin-top:14px"><b>iPhone:</b> tap the button, then <b>Add All</b>. <b>Android:</b> open the downloaded file with Samsung Calendar or another calendar app; for Google Calendar, import it at calendar.google.com (Settings, Import &amp; export). Adding again later only updates the same events, it doesn't double them up in iPhone and Samsung calendars.</p>
     </div>
 
     <div class="step">
@@ -686,7 +734,7 @@ function syncEvents(){
 }
 syncEvents();
 let history=store.get('history',[]);
-const saveEv=()=>{events.sort((a,b)=>a.at-b.at);store.set('events',events)};
+const saveEv=()=>{events.sort((a,b)=>a.at-b.at);store.set('events',events);try{tgSyncSoon()}catch(e){}};
 saveEv();
 
 /* ---------- data components per event ----------
@@ -815,7 +863,7 @@ $('#d-save').onclick=()=>{
 function notifState(){try{return 'Notification' in window?Notification.permission:'unsupported'}catch(e){return'unsupported'}}
 function updNotifBtn(){const s=notifState();const btn=$('#notif-btn');btn.textContent=s==='granted'?'Notifications on':s==='denied'?'Notifications blocked':s==='unsupported'?'In-page alerts only':'Allow notifications';btn.disabled=s!=='default'}
 $('#notif-btn').onclick=async()=>{try{await Notification.requestPermission()}catch(e){}updNotifBtn()};
-function notify(title,body){toast(`${title} — ${body}`);try{if(notifState()==='granted'){if(swReg&&swReg.showNotification)swReg.showNotification(title,{body,icon:'icons/icon-192.png',tag:title});else new Notification(title,{body})}}catch(e){}}
+function notify(title,body,tag){toast(`${title} — ${body}`);try{navigator.vibrate&&navigator.vibrate([180,90,180])}catch(e){}try{if(notifState()==='granted'){if(swReg&&swReg.showNotification)swReg.showNotification(title,{body,icon:'icons/icon-192.png',tag:tag||title,renotify:true});else new Notification(title,{body})}}catch(e){}}
 let swReg=null;
 
 /* ---------- next-event clock + reminders ---------- */
@@ -1239,7 +1287,7 @@ function autoZones(d){
       if(vwap&&vwap>=g.from-.15*a&&vwap<=g.to+.15*a){score+=.7;kinds.push('VWAP')}
       const dist=dir==='Buy'?Math.max(0,px-g.to):Math.max(0,g.from-px);
       if(dist>8*a)return;
-      out.push({type:dir,from:Math.round(g.from*100)/100,to:Math.round(g.to*100)/100,score,tags:kinds,i:Math.min(...g.m.map(c=>c.i)),fresh:best.touches===0,src:'auto',
+      out.push({type:dir,from:Math.round(g.from*100)/100,to:Math.round(g.to*100)/100,score,tags:kinds,i:Math.min(...g.m.map(c=>c.i)),t:d[Math.min(...g.m.map(c=>c.i))].time,fresh:best.touches===0,src:'auto',
         grade:score>=6?'Strong':score>=4?'Good':'Weak'});
     });
   });
@@ -1262,7 +1310,51 @@ function allZones(){
 }
 const srcLabel=z=>z.src==='auto'?`${z.grade}: ${z.tags.join(' + ')}${z.fresh?', untested':''}`:z.src==='ai'?`AI, ${esc(aiZones.ev)}`:'Yours'+(z.note?`, ${esc(z.note)}`:'');
 const isDim=z=>biasFresh()&&z.type!==lastBias.dir;
-function refreshZones(){autoZ=chData.length?autoZones(chData):[];renderZoneEls();renderZoneList();renderBias()}
+function refreshZones(){autoZ=chData.length?autoZones(chData):[];renderZoneEls();renderZoneList();renderBias();zaStatus();try{tgSyncSoon()}catch(e){}}
+
+/* ---------- zone alerts: ring when the live price moves into a zone ---------- */
+let za=Object.assign({on:false,which:'good',sound:true},store.get('zoneAlerts',{}));
+const zaState=new Map(); // zone key -> {inside, last}
+const zKey=z=>z.src==='auto'?`auto|${z.type}|${z.t}`:z.src==='you'?`you|${z.id}`:`ai|${z.type}|${z.from.toFixed(2)}|${z.to.toFixed(2)}`;
+const zaZones=()=>allZones().filter(z=>za.which==='all'||z.src!=='auto'||z.grade!=='Weak');
+let actx=null;
+function beep(){
+  try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();if(actx.state==='suspended')actx.resume();
+    [0,.22].forEach(d=>{const o=actx.createOscillator(),g=actx.createGain(),t=actx.currentTime+d;o.type='sine';o.frequency.value=d?1175:880;
+      g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.3,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+.18);o.connect(g).connect(actx.destination);o.start(t);o.stop(t+.2)})}catch(e){}
+}
+let zlAt=0;
+function checkZones(px){
+  if(Date.now()-zlAt>2000&&$('#v-chart').classList.contains('on')){zlAt=Date.now();renderZoneList()} // keep 'above/below/inside' current
+  if(!za.on||px==null)return;
+  const now=Date.now(),zs=zaZones(),all=allZones();
+  zs.forEach(z=>{const k=zKey(z),inside=px>=z.from&&px<=z.to,st=zaState.get(k);
+    if(!st){zaState.set(k,{inside,last:0});return} // first look: remember, don't ring for a zone we were already in
+    if(inside&&!st.inside&&now-st.last>10*6e4){
+      st.last=now;const pl=plan(z,all),against=biasFresh()&&lastBias.dir!==z.type;
+      const what=z.src==='auto'?`${z.grade.toLowerCase()}: ${z.tags.join('+')}`:z.src==='ai'?'AI zone':'your zone';
+      notify(`XAUUSD in ${z.type} zone`,`${fmtPx(px)} is inside ${z.type} ${fmtPx(z.from)}–${fmtPx(z.to)} (${what}). Entry ${fmtPx(pl.e)}, SL ${fmtPx(pl.sl)}, TP ${fmtPx(pl.tp)} (${pl.rr.toFixed(1)}R).${against?` Careful: against your ${lastBias.dir} bias.`:''}`,'zone-'+k);
+      if(za.sound)beep();
+    }
+    st.inside=inside});
+  zaStatus();
+}
+function zaStatus(){
+  const el=$('#za-status');if(!el)return;
+  if(!za.on){el.textContent='Zone alerts are off.';return}
+  const zs=zaZones();
+  if(!zs.length){el.textContent=chData.length?'Watching, but there are no zones to watch right now.':'Zone alerts need the price feed; waiting for prices…';return}
+  const b=zs.filter(z=>z.type==='Buy').length,s=zs.length-b,inz=lastPx!=null?zs.find(z=>lastPx>=z.from&&lastPx<=z.to):null;
+  el.innerHTML=`Watching ${b} buy and ${s} sell zone${s===1?'':'s'}${inz?`. Price is inside a <b class="${inz.type}">${inz.type}</b> zone now`:''}. Works while the app is open; on a computer a background tab is fine${notifState()==='granted'?'':'. Allow notifications (Calendar page) to get pop-ups'}.`;
+}
+function zaSync(){$('#za-on').checked=za.on;$('#za-which').value=za.which;$('#za-sound').checked=za.sound;$('#za-which').disabled=$('#za-sound').disabled=!za.on;zaStatus()}
+async function zaEnsureData(){if(za.on&&!chData.length){try{await loadChart()}catch(e){}zaStatus()}}
+$('#za-on').onchange=async()=>{za.on=$('#za-on').checked;store.set('zoneAlerts',za);zaState.clear();zaSync();
+  if(za.on){beep(); // also unlocks sound on phones (needs a tap)
+    if(notifState()==='default'){try{await Notification.requestPermission();updNotifBtn()}catch(e){}}
+    await zaEnsureData();startFeed();toast('Zone alerts on')}else toast('Zone alerts off')};
+$('#za-which').onchange=()=>{za.which=$('#za-which').value;store.set('zoneAlerts',za);zaState.clear();zaStatus();tgSyncSoon()};
+$('#za-sound').onchange=()=>{za.sound=$('#za-sound').checked;store.set('zoneAlerts',za);if(za.sound)beep()};
 function renderZoneEls(){
   const box=$('#ch-zones');if(!box)return;
   const zs=allZones();
@@ -1308,7 +1400,7 @@ $('#z-match').onclick=async()=>{
     if(cs)reapply();toast(`Chart shifted ${pxOffset.val>=0?'+':''}${pxOffset.val.toFixed(2)} to match your broker`)}catch(e){toast("Couldn't reach the price feed: "+e.message)}
 };
 $('#z-unmatch').onclick=async()=>{pxOffset=null;store.set('pxOffset',null);await syncSpot();if(cs)reapply();toast(offMode()==='spot'?'Chart matched to live spot gold again':'Chart shows the raw feed price')};
-document.addEventListener('visibilitychange',()=>{if(document.hidden){stopFeed();return}startFeed();if($('#v-chart').classList.contains('on'))pollChart()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){if(!za.on)stopFeed();return}startFeed();if($('#v-chart').classList.contains('on'))pollChart()});
 
 /* ---------- live feed: a tick every second over a WebSocket, REST every 3 s as backup ----------
    Updates the home price, the chart's last candle (new candles open on time), the Ask line and the bar countdown. */
@@ -1364,6 +1456,7 @@ function onTick(raw,t){
     if(chData.length&&chData[chData.length-1].time===b.time)chData[chData.length-1]=b;else chData.push(b);
     setPrice();updAsk();if(nb)refreshZones();
   }
+  checkZones(px);
 }
 function updAsk(){
   if(!cs||lastPx==null)return;const p=lastPx+spread;
@@ -1404,6 +1497,75 @@ window.addEventListener('online',()=>renderTV(true));
 
 /* settings: alerts */
 $('#s-lead').value=String(lead);
+/* ---------- Telegram robot (Cloudflare worker): settings + sync ---------- */
+let tgc=Object.assign({url:'',secret:'',news:true,zones:true,linked:false,lastSync:0},store.get('tg',{}));
+let tgTimer=0,tgLastHash='',tgBusy=false;
+const tgReady=()=>/^https:\/\//.test(tgc.url)&&tgc.secret.length>=4;
+function tgSave(){store.set('tg',tgc)}
+function tgShow(msg,bad){const el=$('#tg-status');if(!el)return;
+  el.style.color=bad?'var(--sell)':'';
+  el.textContent=msg||(!tgReady()?'Not set up yet.':tgc.linked?`Connected. ${tgc.news?'News':''}${tgc.news&&tgc.zones?' and ':''}${tgc.zones?'zone':''}${tgc.news||tgc.zones?' alerts are on.':'All Telegram alerts are off.'}${tgc.lastSync?` Last sync ${new Date(tgc.lastSync).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}.`:''}`:'Saved. Press Connect after you press Start on your bot in Telegram.')}
+async function tgCall(path,body){
+  const r=await fetch(tgc.url.replace(/\/+$/,'')+path,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+tgc.secret},body:JSON.stringify(body||{})});
+  let j={};try{j=await r.json()}catch(e){}
+  if(!r.ok||!j.ok)throw new Error(j.error||('HTTP '+r.status));return j;
+}
+function tgPayload(){
+  const now=Date.now();
+  const adj=offMode()==='broker'&&spotOff&&spotOff.src===SOURCES[srcIdx].name?Math.round((pxOffset.val-spotOff.val)*100)/100:0;
+  return{newsOn:tgc.news,zonesOn:tgc.zones,lead,which:za.which,tf:chTf,adj,
+    events:events.filter(e=>e.at>now-6e4&&e.at<now+60*864e5&&(e.type!=='Claims'||showClaims)).map(e=>{const h=head(e);return{key:e.key||e.id,type:e.type,name:e.name||NAMES[e.type]||e.type,at:e.at,fc:h.fc||'',pv:h.pv||''}}),
+    userZones,aiZones:aiFresh()?aiZones:null,
+    autoZ:autoZ.map(z=>({type:z.type,from:z.from,to:z.to,grade:z.grade,tags:z.tags,t:z.t})),autoAt:autoZ.length?now:0};
+}
+async function tgSync(force){
+  if(!tgReady()||tgBusy)return;
+  const p=tgPayload(),h=JSON.stringify({...p,autoAt:0});
+  if(!force&&h===tgLastHash)return; // nothing changed, don't use up the robot's daily writes
+  tgBusy=true;
+  try{await tgCall('/sync',p);tgLastHash=h;tgc.lastSync=Date.now();tgSave();tgShow()}
+  catch(e){tgShow("Couldn't reach the robot: "+e.message,true)}finally{tgBusy=false}
+}
+// changes are batched; at most one sync a minute unless forced
+function tgSyncSoon(ms=4000){if(!tgReady())return;clearTimeout(tgTimer);const wait=Math.max(ms,6e4-(Date.now()-tgc.lastSync));tgTimer=setTimeout(()=>tgSync(false),Math.min(wait,6e4))}
+function tgFill(){$('#tg-url').value=tgc.url;$('#tg-secret').value=tgc.secret;$('#tg-news').checked=tgc.news;$('#tg-zones').checked=tgc.zones;tgShow()}
+const tgRead=()=>{tgc.url=$('#tg-url').value.trim();tgc.secret=$('#tg-secret').value.trim();tgSave()};
+$('#tg-url').onchange=$('#tg-secret').onchange=()=>{tgRead();tgc.linked=false;tgSave();tgShow()};
+$('#tg-news').onchange=$('#tg-zones').onchange=()=>{tgc.news=$('#tg-news').checked;tgc.zones=$('#tg-zones').checked;tgSave();tgSync(true)};
+$('#tg-link').onclick=async()=>{tgRead();if(!tgReady()){tgShow('Fill in the robot address (starting with https://) and password first.',true);return}
+  tgShow('Connecting…');
+  try{const j=await tgCall('/link');tgc.linked=true;tgSave();await tgSync(true);tgShow();toast(`Connected to Telegram (${j.name}). Check your Telegram.`)}
+  catch(e){tgShow(e.message==='Failed to fetch'?"Couldn't reach the robot. Check the address.":e.message,true)}};
+$('#tg-test').onclick=async()=>{tgRead();if(!tgReady()){tgShow('Fill in the robot address and password first.',true);return}
+  try{await tgSync(true);await tgCall('/test');toast('Test sent. Check your Telegram.')}catch(e){tgShow(e.message,true)}};
+tgFill();
+setInterval(()=>tgSync(false),5*6e4); // background refresh of zones and events
+
+/* phone calendar file (.ics) with alarms, so alerts ring even with the app closed */
+const KEY_TYPES=new Set(['NFP','CPI','PPI','PCE','FOMC','GDP','Retail Sales']);
+function buildICS(list){
+  const esc2=t=>String(t).replace(/\\/g,'\\\\').replace(/[,;]/g,m=>'\\'+m).replace(/\n/g,'\\n');
+  const dt=ms=>new Date(ms).toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+  const fold=l=>{const out=[];while(l.length>73){out.push(l.slice(0,73));l=' '+l.slice(73)}out.push(l);return out.join('\r\n')};
+  const L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Gold Abyss X79//News alerts//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH','X-WR-CALNAME:Gold Abyss news','X-WR-TIMEZONE:Asia/Kuala_Lumpur'];
+  const now=dt(Date.now());
+  list.forEach(e=>{const h=head(e);
+    const info=[`${e.name||NAMES[e.type]||e.type} (USD, high impact for XAUUSD).`,h.fc?`Forecast ${h.fc}.`:'',h.pv?`Previous ${h.pv}.`:'',e.est?'Date is an estimate, check the official calendar.':'','Open Gold Abyss X79 to analyse it.'].filter(Boolean).join(' ');
+    L.push('BEGIN:VEVENT',`UID:${(e.key||e.id).replace(/[^A-Za-z0-9|.-]/g,'_')}@gold-abyss-x79`,`DTSTAMP:${now}`,`DTSTART:${dt(e.at)}`,`DTEND:${dt(e.at+15*6e4)}`,
+      `SUMMARY:${esc2('XAUUSD news: '+e.type+(e.est?' (est.)':''))}`,`DESCRIPTION:${esc2(info)}`,'TRANSP:TRANSPARENT',
+      'BEGIN:VALARM','ACTION:DISPLAY',`DESCRIPTION:${esc2(e.type+' in '+lead+' minutes')}`,`TRIGGER:-PT${lead}M`,'END:VALARM',
+      'BEGIN:VALARM','ACTION:DISPLAY',`DESCRIPTION:${esc2(e.type+' in 1 minute')}`,'TRIGGER:-PT1M','END:VALARM','END:VEVENT')});
+  L.push('END:VCALENDAR');return L.map(fold).join('\r\n')+'\r\n';
+}
+$('#ics-add').onclick=async()=>{
+  const now=Date.now(),to=now+(+$('#ics-days').value)*864e5,key=$('#ics-scope').value==='key';
+  const list=events.filter(e=>e.at>now&&e.at<=to&&(key?KEY_TYPES.has(e.type):shown(e)));
+  if(!list.length){toast('No upcoming releases in that range');return}
+  const file=new File([buildICS(list)],'gold-abyss-news.ics',{type:'text/calendar'});
+  try{if(navigator.canShare&&navigator.canShare({files:[file]})&&matchMedia('(pointer:coarse)').matches){await navigator.share({files:[file],title:'Gold Abyss news alerts'});return}}catch(e){if(e.name==='AbortError')return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=file.name;document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);
+  toast(`${list.length} releases saved. Open the file to add them to your calendar.`);
+};
 $('#s-lead').onchange=()=>{lead=+$('#s-lead').value;store.set('lead',lead);events.forEach(e=>{if(e.at>Date.now())e.fired=false});saveEv();tick();toast(`Alerts now ring ${lead} minutes before each release`)};
 $('#s-restore').onclick=()=>{deleted.clear();store.set('deleted',[]);const n=syncEvents();saveEv();renderCalKeep();toast(n?`Brought back ${n} events`:'No deleted events to bring back')};
 
@@ -1444,7 +1606,7 @@ setTheme(store.get('theme','onyx'));
 /* init */
 events.sort((a,b)=>a.at-b.at);
 syncToggles();renderCal();renderHist();renderRecord();updNotifBtn();tick();setInterval(tick,1000);
-$('#tv-box').innerHTML=tickerHTML();startFeed();
+$('#tv-box').innerHTML=tickerHTML();startFeed();zaSync();zaEnsureData();
 // refresh the calendar once a day while the app stays open
 setInterval(()=>{if(syncEvents()){saveEv();renderCalKeep()}},6*36e5);
 if(store.get('gkey','')&&Date.now()-store.get('gmodelsAt',0)>7*864e5)refreshModels(true);
