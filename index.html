@@ -40,7 +40,10 @@
   --gold:#9C7A33;--gold-fill:#C6A25A;--gold-hover:#B8944C;--on-gold:#FFFFFF;--buy:#1E7552;--sell:#AE3F3B;--foil:linear-gradient(176deg,#D9B56A 0%,#B08A3E 40%,#86641F 55%,#A9853A 72%,#C9A55C 100%);--glow:0;color-scheme:light}
 html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 80px)}
 /* show at 75% size on computers (phones and tablets stay at 100%) */
-@media (min-width:1024px) and (pointer:fine){html{zoom:.75}body{min-height:calc(100vh / .75);min-height:calc(100dvh / .75)}}
+@media (min-width:1024px) and (pointer:fine){html{zoom:.75}body{min-height:calc(100vh / .75);min-height:calc(100dvh / .75)}
+  /* the chart library reads mouse positions without CSS zoom, so cancel the zoom inside the chart */
+  .ch-wrap{zoom:1.3333333;height:min(47vh,390px)!important;min-height:240px!important}
+  .tvc{zoom:1.3333333;height:min(52vh,450px);min-height:270px}}
 *,*::before,*::after{box-sizing:inherit}
 body{margin:0;display:flex;flex-direction:column;min-height:100vh;min-height:100dvh;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
 h1,h2,h3{font-family:var(--display);font-weight:500;line-height:1.05;margin:0}
@@ -67,7 +70,7 @@ nav button{background:none;border:0;padding:10px 14px;cursor:pointer;color:var(-
 nav button:hover,nav button[aria-current="page"]{color:var(--ink)}
 nav button[aria-current="page"]::after{content:"";position:absolute;left:14px;right:14px;bottom:3px;height:1.5px;background:var(--gold-fill)}
 .badge{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--gold-fill);color:var(--on-gold);font-size:11px;font-weight:700;line-height:18px;text-align:center;margin-left:6px}
-@media (max-width:640px){.brand span{display:none}.bar{height:62px}.wrap{padding:0 20px}nav button{padding:10px 9px}nav button[aria-current="page"]::after{left:9px;right:9px}}
+@media (max-width:640px){.brand span{display:none}.bar{height:62px}.wrap{padding:0 20px}nav button{padding:10px 7px;font-size:14px}nav button[aria-current="page"]::after{left:7px;right:7px}.bar{gap:8px}}
 
 section.view{display:none;padding:56px 0 96px}
 section.view.on{display:block}
@@ -254,6 +257,64 @@ footer{border-top:1px solid var(--line);padding:28px 0;color:var(--muted);font-s
 .tv,.tv iframe{color-scheme:normal}
 .tv iframe{background:transparent!important}
 .tv.off{display:grid;place-items:center;color:var(--muted);font-size:14px;text-align:center;padding:0 20px}
+/* chart */
+.ch-mode{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px}
+.tvsym{flex-direction:row!important;align-items:center;gap:10px!important;font-size:14px}
+.tvsym select{width:auto;min-width:200px}
+.tvc{height:min(70vh,600px);min-height:360px;border-top:1px solid var(--hair);border-bottom:1px solid var(--line)}
+.tvc,.tvc iframe{color-scheme:normal}
+.tvc{position:relative}
+.tvc iframe{position:absolute;inset:0;display:block;width:100%;height:100%;border:0}
+.ch-head[hidden],.tvsym[hidden],.ch-wrap[hidden],.tvc[hidden]{display:none!important}
+.tk{display:flex;align-items:baseline;gap:6px 16px;flex-wrap:wrap;padding:18px 2px}
+.tk b{font-family:var(--display);font-weight:400;font-size:clamp(40px,7vw,60px);line-height:1;transition:color .4s}
+.tk b.up{color:var(--buy)}.tk b.down{color:var(--sell)}
+.tk .chg{font-weight:600;font-size:15px}.tk .chg.up{color:var(--buy)}.tk .chg.down{color:var(--sell)}
+.tk .ba{color:var(--muted);font-size:14px;margin-left:auto}.tk .ba b{all:unset;color:var(--ink);font-weight:600}
+@media (max-width:560px){.tk .ba{margin-left:0;flex-basis:100%}}
+#ch-cd{position:absolute;right:0;z-index:4;display:none;font-size:11px;font-weight:600;line-height:16px;text-align:center;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:3px;pointer-events:none;box-sizing:border-box}
+.live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--muted);margin-right:6px;vertical-align:1px}
+.live-dot.on{background:var(--buy);box-shadow:0 0 0 3px var(--buy-wash)}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.ch-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin:0 0 14px}
+.ch-price b{font-family:var(--display);font-size:clamp(36px,6vw,52px);font-weight:400;line-height:1;margin-right:12px}
+.ch-price span{font-size:15px;font-weight:600}
+.ch-price .up{color:var(--buy)}.ch-price .down{color:var(--sell)}
+.ch-src{font-size:13px;color:var(--muted)}
+.ch-wrap{position:relative;height:min(62vh,520px);min-height:320px;border-top:1px solid var(--hair);border-bottom:1px solid var(--line)}
+#ch,#ch-zones{position:absolute;inset:0}
+#ch-zones{pointer-events:none;overflow:hidden;z-index:2}
+.zb{position:absolute;left:0;box-sizing:border-box;border-top:1px dashed;border-bottom:1px dashed;display:none}
+.zb .lb{position:absolute;left:8px;font-size:11px;font-weight:700;white-space:nowrap;line-height:1.5}
+.zb.Sell .lb{bottom:100%}.zb.Buy .lb{top:100%}
+.zb.lr .lb{left:auto;right:4px}
+.zb .lb i{font-style:normal;font-weight:500}
+.zb.Buy{background:var(--buy-wash);border-color:var(--buy);color:var(--buy)}
+.zb.Sell{background:var(--sell-wash);border-color:var(--sell);color:var(--sell)}
+.zb.you{border-style:solid}
+.zb.dim{opacity:.3}
+.zb.weak:not(.dim){opacity:.6}
+.zones .zr small.pl{color:var(--ink);font-weight:500}
+.ch-msg{position:absolute;inset:0;z-index:3;display:grid;place-items:center;align-content:center;gap:12px;text-align:center;color:var(--muted);font-size:14px;padding:0 24px;margin:0;background:var(--bg)}
+.ch-msg[hidden]{display:none}
+.ch-bias{margin:18px 0 0;font-size:15px;max-width:72ch}
+.ch-bias b.Buy{color:var(--buy)}.ch-bias b.Sell{color:var(--sell)}
+.zones{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.zones li{display:grid;grid-template-columns:70px 1fr auto auto;gap:16px;align-items:center;padding:12px 2px;border-bottom:1px solid var(--line)}
+.zones li.dim{opacity:.55}
+.zones .zt{font-family:var(--display);font-style:italic;font-size:24px;line-height:1}
+.zones .zt.Buy{color:var(--buy)}.zones .zt.Sell{color:var(--sell)}
+.zones .zr{font-weight:600}
+.zones .zr small{display:block;color:var(--muted);font-weight:500;font-size:13px}
+.zones .zd{color:var(--muted);font-size:14px;text-align:right}
+.zones .empty{display:block;color:var(--muted);padding:16px 2px}
+.zform{display:grid;grid-template-columns:120px 1fr 1fr 1.4fr auto;gap:10px;align-items:end}
+@media (max-width:700px){.zform{grid-template-columns:1fr 1fr}.zform .wide{grid-column:1/-1}.zones li{grid-template-columns:56px 1fr auto;gap:10px}.zones .zd{grid-column:2;text-align:left}}
+.sw{display:inline-flex;flex-direction:row;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer}
+.sw input{width:auto;accent-color:var(--gold-fill)}
+nav button svg{vertical-align:-3px}
+@media (max-width:640px){nav .nl{display:none}}
+@media (max-width:380px){.brand{display:none}}
 /* settings */
 .set-note{font-size:14px;color:var(--muted);margin:0 0 16px;max-width:70ch}
 .form+.set-note{margin:14px 0 0}
@@ -275,8 +336,9 @@ footer{border-top:1px solid var(--line);padding:28px 0;color:var(--muted);font-s
     <nav aria-label="Main menu">
       <button data-go="home" aria-current="page">Home</button>
       <button data-go="cal">Calendar</button>
+      <button data-go="chart">Chart</button>
       <button data-go="an">Analysis</button>
-      <button data-go="set">Settings</button>
+      <button data-go="set" aria-label="Settings"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg> <span class="nl">Settings</span></button>
     </nav>
   </div>
 </header>
@@ -304,7 +366,7 @@ footer{border-top:1px solid var(--line);padding:28px 0;color:var(--muted);font-s
     </div>
 
     <div class="block">
-      <div class="block-h"><h2>Gold right now</h2><span class="muted" style="font-size:14px">Live XAUUSD quote from TradingView</span></div>
+      <div class="block-h"><h2>Gold right now</h2><span class="muted" style="font-size:14px" id="tk-src"><span class="live-dot"></span>Connecting…</span></div>
       <div id="tv-box" class="tv"></div>
     </div>
 
@@ -380,6 +442,73 @@ footer{border-top:1px solid var(--line);padding:28px 0;color:var(--muted);font-s
         <h2>History</h2>
         <div id="hist"></div>
       </div>
+    </div>
+  </section>
+
+  <!-- CHART -->
+  <section class="view" id="v-chart">
+    <div class="toolbar">
+      <h2>Chart</h2>
+      <div class="seg" role="group" aria-label="Timeframe">
+        <button class="btn small ghost" data-tf="1m">M1</button>
+        <button class="btn small ghost" data-tf="5m">M5</button>
+        <button class="btn small ghost" data-tf="15m">M15</button>
+        <button class="btn small ghost" data-tf="1h">H1</button>
+        <button class="btn small ghost" data-tf="4h">H4</button>
+        <button class="btn small ghost" data-tf="1d">D1</button>
+      </div>
+    </div>
+    <div class="ch-mode">
+      <div class="seg" role="group" aria-label="Chart type">
+        <button class="btn small ghost" data-cm="tv">Live chart</button>
+        <button class="btn small ghost" data-cm="zones">Zones chart</button>
+      </div>
+      <label class="tvsym">Price from
+        <select id="tv-sym">
+          <option value="OANDA:XAUUSD">OANDA</option>
+          <option value="PEPPERSTONE:XAUUSD">Pepperstone</option>
+          <option value="ICMARKETS:XAUUSD">IC Markets</option>
+          <option value="FOREXCOM:XAUUSD">FOREX.com</option>
+          <option value="FXOPEN:XAUUSD">FXOpen</option>
+          <option value="CAPITALCOM:GOLD">Capital.com</option>
+        </select>
+      </label>
+    </div>
+    <div class="tvc" id="tvc" hidden></div>
+    <div class="ch-head">
+      <div class="ch-price"><b class="num" id="ch-px">—</b><span class="num" id="ch-chg"></span></div>
+      <span class="ch-src"><span class="live-dot" id="ch-dot"></span><span id="ch-src">XAUUSD, times in MYT</span></span>
+    </div>
+    <div class="ch-wrap">
+      <div id="ch"></div>
+      <div id="ch-zones" aria-hidden="true"></div>
+      <div class="ch-msg" id="ch-msg" role="status">Loading prices…</div>
+      <div id="ch-cd" aria-hidden="true"></div>
+    </div>
+    <p class="ch-bias" id="ch-bias"></p>
+
+    <div class="block" style="margin-top:40px">
+      <div class="block-h"><h2>Buy and sell zones</h2><label class="sw"><input type="checkbox" id="z-auto"> Show auto zones</label></div>
+      <p class="note" id="tv-note" style="margin-bottom:12px" hidden>The live chart comes straight from TradingView, so the app can't draw on it. Use these zones as levels, or draw them yourself with TradingView's rectangle tool. Switch to <b>Zones chart</b> to see them drawn automatically with the Ask line and bar countdown.</p>
+      <p class="note" style="margin-bottom:16px">Auto zones combine order blocks (OB), fair value gaps (FVG), liquidity swings, the previous day's high and low (PDH/PDL), round $10 levels and today's VWAP. Broken or filled zones are removed, untested zones score higher, and the best three on each side are shown. Each zone has a scalp plan: enter at the zone edge, stop just beyond it, target the next opposite zone or 2R. AI zones come from your latest AI analysis. Zones against your latest bias are faded.</p>
+      <ul class="zones" id="zone-list"></ul>
+    </div>
+
+    <div class="step" style="margin-top:36px">
+      <h3>Add your own zone</h3>
+      <div class="zform">
+        <label>Type<select id="z-type"><option>Buy</option><option>Sell</option></select></label>
+        <label>From<input id="z-from" inputmode="decimal" placeholder="Low price"></label>
+        <label>To<input id="z-to" inputmode="decimal" placeholder="High price"></label>
+        <label class="wide">Note <small>optional</small><input id="z-note" placeholder="e.g. 4H demand, NFP"></label>
+        <button class="btn small wide" id="z-add" style="justify-content:center">Add zone</button>
+      </div>
+      <details class="settings">
+        <summary>Match my broker's price</summary>
+        <p class="set-note" style="margin-top:14px">Candles come from Binance's gold index and are matched to live spot gold automatically. Brokers still differ by a little, so if yours is off, type your broker's price right now and the chart shifts to match it exactly. Reset goes back to spot matching.</p>
+        <div class="row" style="max-width:520px"><input id="z-broker" inputmode="decimal" placeholder="Your broker's XAUUSD price" aria-label="Your broker's XAUUSD price"><button class="btn small ghost" id="z-match">Match</button><button class="btn small ghost" id="z-unmatch">Reset</button></div>
+        <div class="form" style="max-width:520px;margin-top:14px"><label>Your broker's spread <small>in dollars; draws the Ask line above the Bid</small><input id="z-spread" inputmode="decimal" placeholder="e.g. 0.20"></label></div>
+      </details>
     </div>
   </section>
 
@@ -606,7 +735,7 @@ function left(ms){if(ms<=0)return'Released';const d=Math.floor(ms/864e5),h=Math.
 function toast(msg){const el=document.createElement('div');el.className='toast';el.textContent=msg;$('#toasts').append(el);setTimeout(()=>el.remove(),9000)}
 
 /* ---------- navigation ---------- */
-function go(v){$$('.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+v));$$('nav button').forEach(x=>{if(x.dataset.go===v)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current')});window.scrollTo(0,0)}
+function go(v){$$('.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+v));$$('nav button').forEach(x=>{if(x.dataset.go===v)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current')});window.scrollTo(0,0);if(v==='chart')openChart()}
 document.addEventListener('click',e=>{const t=e.target.closest('[data-go]');if(t)go(t.dataset.go)});
 
 /* ---------- calendar ---------- */
@@ -764,8 +893,10 @@ function showResult(r,ev){
    <p style="margin:0">${esc(r.summary)}</p>
    ${r.levels?`<p class="levels"><b>Levels to watch:</b> ${esc(r.levels)}</p>`:''}
    ${r.scen&&r.scen.length?`<div class="scen">${r.scen.map(s=>`<div><b>${esc(s[0])}</b><span>${esc(s[1])}</span></div>`).join('')}</div>`:''}
-   <div class="cta" style="margin-top:22px"><button class="btn small" id="save-an">Save to history</button></div>
+   ${r.zones&&r.zones.length?`<p class="levels"><b>Zones:</b> ${r.zones.map(z=>`${z.type} ${fmtPx(z.from)}–${fmtPx(z.to)}`).join(', ')}</p>`:''}
+   <div class="cta" style="margin-top:22px"><button class="btn small" id="save-an">Save to history</button><button class="btn small ghost" data-go="chart">${r.zones&&r.zones.length?'See zones on chart':'Open chart'}</button></div>
    <p class="fine">Not financial advice.</p></div>`;el.scrollIntoView({behavior:'smooth',block:'start'});
+  lastBias={dir:r.dir,conf:r.conf,type:ev.type,src:r.src,t:Date.now()};store.set('lastBias',lastBias);if(typeof refreshZones==='function')refreshZones();
   $('#save-an').onclick=()=>{history.unshift({id:uid(),t:Date.now(),evId:ev.id,type:ev.type,evAt:ev.at,dir:r.dir,conf:r.conf,src:r.src,summary:r.summary,outcome:null});store.set('history',history);renderHist();renderRecord();toast('Saved to history');$('#save-an').disabled=true};
 }
 function curForm(){
@@ -809,6 +940,9 @@ $('#run-ai').onclick=async()=>{
   const btn=$('#run-ai');btn.disabled=true;btn.textContent='Analysing…';
   $('#result').innerHTML='<div class="result"><p class="empty">The AI is analysing. This may take 10–40 seconds.</p></div>';$('#result').scrollIntoView({behavior:'smooth',block:'start'});
   ctrl?.abort();ctrl=new AbortController();
+  let pxUsed=f.px;
+  if(!pxUsed){const lp=await livePrice().catch(()=>null);if(lp)pxUsed=lp.toFixed(2)+' (live price from the chart feed)'}
+  const pxNum=parseNum(pxUsed);
   const prompt=`You are a macroeconomic market analyst. Give an XAUUSD (gold vs USD) bias analysis for the following US data release. Answer in English. You MUST choose Buy or Sell — never Neutral.
 Event: ${f.ev.type} (${f.ev.name})
 Release time: ${new Date(f.ev.at).toISOString()} (${fmt.format(f.ev.at)} MYT)
@@ -816,13 +950,14 @@ Current time: ${new Date().toISOString()} (${fmt.format(Date.now())} MYT)
 Status: ${f.ev.at<=Date.now()?'already released':'not released yet'}
 Data (first line is the headline figure):
 ${f.rows.map(r=>`- ${r.l}: forecast ${r.fc||'none'}, previous ${r.pv||'none'}, actual ${r.ac||'not released yet'}${r.s<0?' (note: higher figure = weaker economy = weaker USD)':''}`).join('\n')}
-${TONE_TYPES.has(f.ev.type)?`Statement/speech tone (user's read): ${f.tone||'not out yet'}\nNote: for this event the market reacts mostly to the tone, rate path and (for FOMC) the dot plot and press conference versus expectations, not just the headline rate.\n`:''}Current XAUUSD price: ${f.px||'not given'}
-User context: ${f.ctx||'none'}
+${TONE_TYPES.has(f.ev.type)?`Statement/speech tone (user's read): ${f.tone||'not out yet'}\nNote: for this event the market reacts mostly to the tone, rate path and (for FOMC) the dot plot and press conference versus expectations, not just the headline rate.\n`:''}Current XAUUSD price: ${pxUsed||'not given'}
+${autoZ.length?`Nearby zones from recent swing highs/lows on the ${chTf} chart: ${autoZ.map(z=>`${z.type} ${z.from}-${z.to} (${z.tags.join('+')}, ${z.grade.toLowerCase()})`).join('; ')}\n`:''}User context: ${f.ctx||'none'}
 
 If actual figures are available, assess the surprise versus forecast. Weigh all the data together (the headline figure matters most) and say if the signals are mixed. If not yet released, still pick Buy or Sell: decide the more likely side using forecast vs previous, the recent trend, typical market positioning and the user context, then lay out scenarios. If the edge is weak, still pick a side and lower the confidence (around 50-60) instead of going neutral.
 Be honest about uncertainty; confidence should rarely exceed 75. Do not give price levels if the current price was not provided.
 Return JSON ONLY in this shape:
-{"dir":"Buy"|"Sell","conf":0-100,"usd":"Stronger"|"Weaker","summary":"2-3 sentences","levels":"brief support/resistance levels or empty string","scen":[["Higher","..."],["In line","..."],["Lower","..."]]}`;
+{"dir":"Buy"|"Sell","conf":0-100,"usd":"Stronger"|"Weaker","summary":"2-3 sentences","levels":"brief support/resistance levels or empty string","scen":[["Higher","..."],["In line","..."],["Lower","..."]],"zones":[{"type":"Buy","from":0,"to":0},{"type":"Sell","from":0,"to":0}]}
+For "zones": if a current price is given, give 1-2 Buy zones below the price and 1-2 Sell zones above it where you would look to enter after this release, each about 3-15 dollars wide and within about 2% of the price, with from lower than to. If no price is given, return an empty array.`;
   try{
     const key=store.get('gkey','');
     if(!key)throw{code:'server',message:'Paste your Gemini API key and press Save first'};
@@ -853,7 +988,10 @@ Return JSON ONLY in this shape:
     // if the model still answers Neutral, derive the side from its USD view, else from the quick check
     if(!dir)dir=/weak/i.test(r.usd||'')?'Buy':/strong/i.test(r.usd||'')?'Sell':ruleCheck(f.ev,f.rows,f.tone).dir||'Buy';
     if(r.usd!=='Stronger'&&r.usd!=='Weaker')r.usd=dir==='Sell'?'Stronger':'Weaker';
-    showResult({dir,conf:Math.max(0,Math.min(100,parseInt(r.conf)||0)),usd:r.usd||'Neutral',summary:r.summary||'',levels:r.levels||'',scen:Array.isArray(r.scen)?r.scen.filter(s=>Array.isArray(s)&&s.length>=2).slice(0,4):[],src:'AI analysis'},f.ev);
+    const zs=(Array.isArray(r.zones)?r.zones:[]).map(z=>{const a=parseNum(z&&z.from),b=parseNum(z&&z.to),t=/sell/i.test(z&&z.type)?'Sell':/buy/i.test(z&&z.type)?'Buy':null;
+      return t&&a!==null&&b!==null&&a>0?{type:t,from:Math.min(a,b),to:Math.max(a,b)}:null}).filter(z=>z&&(!pxNum||Math.abs(z.from-pxNum)/pxNum<.1)).slice(0,4);
+    if(zs.length){aiZones={t:Date.now(),ev:f.ev.type,zones:zs};store.set('aiZones',aiZones)}
+    showResult({dir,conf:Math.max(0,Math.min(100,parseInt(r.conf)||0)),usd:r.usd||'Neutral',summary:r.summary||'',levels:r.levels||'',scen:Array.isArray(r.scen)?r.scen.filter(s=>Array.isArray(s)&&s.length>=2).slice(0,4):[],zones:zs,src:'AI analysis'},f.ev);
   }catch(err){
     if(err&&(err.code==='cancelled'||err.name==='AbortError'))return;
     const msg=err&&err.code==='rate_limited'?'Free AI limit reached, try again shortly':err&&err.message?'AI error: '+err.message:'Could not connect to Gemini — check your internet';console.error('AI error',err);
@@ -909,14 +1047,349 @@ function renderRecord(){
   $('#rec-grid').innerHTML=[{t:'Overall',...all},...rows].map(r=>`<div><b>${r.n?Math.round(r.c/r.n*100)+'%':'—'}</b><span>${esc(r.t)}</span><small>${r.n?`${r.c} of ${r.n} right`:'none marked yet'}</small></div>`).join('');
 }
 
+/* ---------- chart with buy/sell zones ----------
+   Prices: Binance gold perpetual (XAUUSDT); falls back to PAXG/USDT (tokenised gold) if that is unreachable. */
+const LWC_URL='https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js';
+const SOURCES=[
+  {name:'Binance gold index price',url:(tf,n)=>`https://fapi.binance.com/fapi/v1/indexPriceKlines?pair=XAUUSDT&interval=${tf}&limit=${n}`},
+  {name:'Binance XAUUSDT gold perpetual',url:(tf,n)=>`https://fapi.binance.com/fapi/v1/klines?symbol=XAUUSDT&interval=${tf}&limit=${n}`},
+  {name:'Binance PAXG/USDT (tokenised gold)',url:(tf,n)=>`https://data-api.binance.vision/api/v3/klines?symbol=PAXGUSDT&interval=${tf}&limit=${n}`},
+  {name:'Binance PAXG/USDT (tokenised gold)',url:(tf,n)=>`https://api.binance.com/api/v3/klines?symbol=PAXGUSDT&interval=${tf}&limit=${n}`}
+];
+const MYT=8*3600;
+const fmtPx=n=>Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+let ch=null,cs=null,chTf=store.get('chTf2','5m'),chData=[],srcIdx=0,chPoll=0,chLoop=0,chLoadedAt=0,lastPx=null,lastPxAt=0,rawLast=null;
+let pxOffset=store.get('pxOffset',null); // {src,val}: shift so the chart matches the broker
+let userZones=store.get('zones',[]),aiZones=store.get('aiZones',null),lastBias=store.get('lastBias',null),showAuto=store.get('showAutoZones',true),autoZ=[],zoneEls=[];
+// spot match: gold-api.com gives the live spot XAU price; the chart is shifted by (spot - feed) unless you set your broker's price
+const SPOT_URL='https://api.gold-api.com/price/XAU';
+let spotOff=null,chRaw=[],pollN=0; // spotOff: {src,val,at}
+const offMode=()=>pxOffset&&pxOffset.src===SOURCES[srcIdx].name?'broker':spotOff&&spotOff.src===SOURCES[srcIdx].name&&Date.now()-spotOff.at<15*6e4?'spot':'none';
+const offNow=()=>{const m=offMode();return m==='broker'?pxOffset.val:m==='spot'?spotOff.val:0};
+async function syncSpot(){ // returns true if the shift changed enough to redraw
+  try{const [sp,j]=await Promise.all([fetch(SPOT_URL).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}),fetchKl('1m',1)]);
+    const spot=+sp.price;if(!(spot>0))return false;const raw=+j[j.length-1][4],val=Math.round((spot-raw)*100)/100;
+    if(Math.abs(val)/spot>.02)return false; // ignore nonsense (over 2% apart)
+    const old=spotOff&&spotOff.src===SOURCES[srcIdx].name?spotOff.val:null;
+    spotOff={src:SOURCES[srcIdx].name,val,at:Date.now()};
+    return old===null||Math.abs(old-val)>=.3;
+  }catch(e){return false}
+}
+function reapply(){ // redraw with the current shift, keeping the view where it is
+  if(!cs||!chRaw.length)return;const r=ch.timeScale().getVisibleLogicalRange();
+  chData=chRaw.map(toBar);cs.setData(chData);if(r)ch.timeScale().setVisibleLogicalRange(r);setPrice();refreshZones();
+}
+
+let libP=null;
+function loadLib(){if(window.LightweightCharts)return Promise.resolve();if(libP)return libP;
+  libP=new Promise((ok,no)=>{const sc=document.createElement('script');sc.src=LWC_URL;sc.onload=ok;sc.onerror=()=>{libP=null;no(new Error('chart library could not load'))};document.head.append(sc)});return libP}
+async function fetchKl(tf,n){
+  let err=null;
+  for(let k=0;k<SOURCES.length;k++){const i=(srcIdx+k)%SOURCES.length;
+    try{const r=await fetch(SOURCES[i].url(tf,n));if(!r.ok)throw new Error('HTTP '+r.status);const j=await r.json();if(!Array.isArray(j)||!j.length)throw new Error('no data');
+      srcIdx=i;return j}catch(e){err=e}}
+  throw err||new Error('no price source reachable');
+}
+const toBar=k=>{const o=offNow();return{time:Math.floor(k[0]/1000)+MYT,open:+k[1]+o,high:+k[2]+o,low:+k[3]+o,close:+k[4]+o,vol:+k[5]||0}};
+async function livePrice(){
+  if(lastPx&&Date.now()-lastPxAt<60e3)return lastPx;
+  const j=await fetchKl('1m',1);rawLast=+j[j.length-1][4];lastPx=rawLast+offNow();lastPxAt=Date.now();return lastPx;
+}
+function cssVar(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
+function chartColors(){if(!ch)return;const ink=cssVar('--muted'),line=cssVar('--line'),buy=cssVar('--buy'),sell=cssVar('--sell');
+  ch.applyOptions({layout:{background:{type:'solid',color:'transparent'},textColor:ink,fontFamily:'Manrope, system-ui, sans-serif'},grid:{vertLines:{color:line},horzLines:{color:line}},
+    rightPriceScale:{borderColor:line},timeScale:{borderColor:line}});
+  cs.applyOptions({upColor:buy,downColor:sell,wickUpColor:buy,wickDownColor:sell,borderVisible:false});if(askLine)askLine.applyOptions({color:sell})}
+function chMsg(html){const m=$('#ch-msg');if(html){m.innerHTML=html;m.hidden=false}else m.hidden=true}
+/* TradingView live chart (default) */
+const TV_INT={'1m':'1','5m':'5','15m':'15','1h':'60','4h':'240','1d':'D'};
+let chMode=store.get('chMode','tv'),tvSym=store.get('tvSym','OANDA:XAUUSD'),tvKey='';
+function renderTVChart(force){
+  const box=$('#tvc'),theme=document.documentElement.dataset.theme==='ivory'?'light':'dark',key=[chTf,tvSym,theme].join('|');
+  if(!force&&key===tvKey&&box.querySelector('iframe'))return;tvKey=key;
+  // the plain TradingView chart page in an iframe we size ourselves (the newer embed script sizes itself and ends up 150px tall)
+  const q=new URLSearchParams({frameElementId:'gax_tv',symbol:tvSym,interval:TV_INT[chTf]||'5',hidesidetoolbar:'0',symboledit:'1',saveimage:'1',
+    toolbarbg:theme==='light'?'f1f3f6':'131722',studies:'[]',theme,style:'1',timezone:'Asia/Kuala_Lumpur',withdateranges:'1',hideideas:'1',locale:'en'});
+  box.innerHTML=`<iframe id="gax_tv" title="XAUUSD live chart from TradingView" src="https://s.tradingview.com/widgetembed/?${q}" allowtransparency="true" allowfullscreen></iframe>`;
+}
+function syncMode(){
+  const tv=chMode==='tv';$$('[data-cm]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.cm===chMode));
+  $('#tvc').hidden=!tv;$('.tvsym').hidden=!tv;$('.ch-head').hidden=tv;$('.ch-wrap').hidden=tv;$('#tv-note').hidden=!tv;
+}
+$('#tv-sym').value=tvSym;
+$('#tv-sym').onchange=()=>{tvSym=$('#tv-sym').value;store.set('tvSym',tvSym);renderTVChart()};
+$$('[data-cm]').forEach(b=>b.onclick=()=>{if(b.dataset.cm===chMode)return;chMode=b.dataset.cm;store.set('chMode',chMode);openChart()});
+async function openChart(){
+  syncTf();syncMode();$('#z-auto').checked=showAuto;renderBias();
+  if(chMode==='tv'){
+    renderTVChart();
+    try{if(!chData.length||Date.now()-chLoadedAt>10*6e4)await loadChart()} // data for the zone list only
+    catch(e){$('#zone-list').innerHTML=`<li class="empty">Zones need the Binance price feed, which isn't reachable right now (${esc(e.message)}). The live chart above still works.</li>`}
+    clearInterval(chPoll);chPoll=setInterval(pollChart,30e3);return;
+  }
+  try{
+    if(!ch){chMsg('Loading prices…');await loadLib();
+      ch=LightweightCharts.createChart($('#ch'),{autoSize:true,crosshair:{mode:0},timeScale:{timeVisible:true,secondsVisible:false,rightOffset:6},
+        localization:{locale:'en-US',priceFormatter:p=>fmtPx(p)},handleScale:{axisPressedMouseMove:true}});
+      cs=ch.addCandlestickSeries({title:'Bid',priceFormat:{type:'price',precision:2,minMove:.01}});askLine=null;chartColors()}
+    if(!chData.length||Date.now()-chLoadedAt>10*6e4)await loadChart();
+    else drawData(); // data came in while the Live chart was showing
+  }catch(e){chMsg(`Couldn't load the chart (${esc(e.message)}). Check your connection; some networks block Binance.<button class="btn small ghost" id="ch-retry">Try again</button>`);
+    $('#ch-retry').onclick=()=>{chData=[];openChart()};return}
+  clearInterval(chPoll);chPoll=setInterval(pollChart,30e3);updAsk();
+  cancelAnimationFrame(chLoop);chLoop=requestAnimationFrame(zoneLoop);
+}
+function drawData(){
+  if(!cs||!chData.length)return;cs.setData(chData);updAsk();
+  const n=chData.length;ch.timeScale().setVisibleLogicalRange({from:Math.max(0,n-160),to:n+8});
+  setPrice();refreshZones();chMsg('');
+}
+async function loadChart(){
+  if(cs)chMsg('Loading prices…');
+  const j=await fetchKl(chTf,1000);if(pxOffset===null)await syncSpot();chRaw=j;chData=j.map(toBar);rawLast=+j[j.length-1][4];
+  chLoadedAt=Date.now();
+  if(cs){cs.setData(chData);updAsk();const n=chData.length;ch.timeScale().setVisibleLogicalRange({from:Math.max(0,n-160),to:n+8})}
+  setPrice();refreshZones();chMsg('');
+}
+async function pollChart(){
+  if(!$('#v-chart').classList.contains('on')||document.hidden||!chRaw.length)return;
+  try{const j=await fetchKl(chTf,2);let nb=false;
+    j.forEach(k=>{const L=chRaw[chRaw.length-1];if(L&&L[0]===k[0])chRaw[chRaw.length-1]=k;else if(!L||k[0]>L[0]){chRaw.push(k);nb=true}});
+    j.map(toBar).forEach(b=>{if(cs)cs.update(b);const L=chData[chData.length-1];if(L&&L.time===b.time)chData[chData.length-1]=b;else if(!L||b.time>L.time)chData.push(b)});
+    rawLast=+j[j.length-1][4];setPrice();if(nb)refreshZones();else renderZoneList();}catch(e){}
+}
+function setPrice(){
+  const L=chData[chData.length-1];if(!L)return;lastPx=L.close;lastPxAt=Date.now();
+  const ref=[...chData].reverse().find(b=>b.time<=L.time-86400)||chData[0],d=L.close-ref.close,pc=d/ref.close*100;
+  $('#ch-px').textContent=fmtPx(L.close);
+  const c=$('#ch-chg');c.className='num '+(d>=0?'up':'down');c.textContent=`${d>=0?'+':''}${fmtPx(d)} (${d>=0?'+':''}${pc.toFixed(2)}%) 24h`;
+  const o=offNow(),m=offMode(),sh=`${o>=0?'+':''}${o.toFixed(2)}`;
+  $('#ch-src').textContent=`XAUUSD from ${SOURCES[srcIdx].name}, `+(m==='broker'?`shifted ${sh} to match your broker`:m==='spot'?`matched to live spot gold (shift ${sh})`:'not matched to spot, use "Match my broker\'s price" below')+'. Times in MYT.';
+  $('#f-px').placeholder=`Live ${fmtPx(L.close)}, used if left empty`;
+}
+function syncTf(){$$('[data-tf]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.tf===chTf))}
+$$('[data-tf]').forEach(b=>b.onclick=async()=>{if(b.dataset.tf===chTf)return;chTf=b.dataset.tf;store.set('chTf2',chTf);syncTf();
+  if(chMode==='tv')renderTVChart();
+  try{await loadChart()}catch(e){if(cs)chMsg(`Couldn't load ${esc(chTf)} prices (${esc(e.message)}).`)}});
+
+/* ---------- auto zones (scalping engine) ----------
+   Candidates: order blocks (last opposite candle before a displacement that breaks structure), fair value gaps,
+   liquidity swings, and previous-day high/low. Broken or filled zones are dropped. Each zone is scored on type,
+   strength of the move away, freshness (untested is best), age, and confluence (overlapping candidates,
+   round $10 numbers, today's VWAP). Below price = Buy, above = Sell. Best 3 on each side within reach. */
+function atr(d,n=14){let s=0,c=0;for(let i=Math.max(1,d.length-n);i<d.length;i++){s+=Math.max(d[i].high-d[i].low,Math.abs(d[i].high-d[i-1].close),Math.abs(d[i].low-d[i-1].close));c++}return c?s/c:0}
+let zATR=0;
+function autoZones(d){
+  const n=d.length;if(n<60)return[];
+  const a=atr(d),px=d[n-1].close,C=[];zATR=a;
+  const BASE={OB:3,FVG:2,Swing:1,PDH:2,PDL:2};
+  // 1. order blocks
+  for(let i=10;i<n-3;i++){const b=d[i],nx=d.slice(i+1,i+4);
+    const hiA=Math.max(...nx.map(x=>x.high)),loA=Math.min(...nx.map(x=>x.low)),up=Math.max(...nx.map(x=>x.close))-b.close,dn=b.close-Math.min(...nx.map(x=>x.close));
+    const pr=d.slice(i-10,i+1),pHi=Math.max(...pr.map(x=>x.high)),pLo=Math.min(...pr.map(x=>x.low));
+    if(b.close<b.open&&up>=1.5*a&&hiA>pHi)C.push({dir:'Buy',kind:'OB',from:b.low,to:Math.min(b.open,b.low+a),i,start:i+4,power:up/a});
+    if(b.close>b.open&&dn>=1.5*a&&loA<pLo)C.push({dir:'Sell',kind:'OB',from:Math.max(b.open,b.high-a),to:b.high,i,start:i+4,power:dn/a});
+  }
+  // 2. fair value gaps
+  for(let i=1;i<n-1;i++){const p=d[i-1],q=d[i+1];
+    if(q.low-p.high>=.25*a)C.push({dir:'Buy',kind:'FVG',from:p.high,to:q.low,i,start:i+2,power:(q.low-p.high)/a,fvg:true});
+    if(p.low-q.high>=.25*a)C.push({dir:'Sell',kind:'FVG',from:q.high,to:p.low,i,start:i+2,power:(p.low-q.high)/a,fvg:true});
+  }
+  // 3. liquidity swings
+  const k=3;for(let i=k;i<n-k;i++){let hi=true,lo=true;
+    for(let j=i-k;j<=i+k;j++){if(j===i)continue;if(d[j].high>=d[i].high)hi=false;if(d[j].low<=d[i].low)lo=false}
+    if(hi)C.push({dir:'Sell',kind:'Swing',from:d[i].high-.3*a,to:d[i].high,i,start:i+k+1,power:1});
+    if(lo)C.push({dir:'Buy',kind:'Swing',from:d[i].low,to:d[i].low+.3*a,i,start:i+k+1,power:1});
+  }
+  // 4. previous trading day high/low (day rolls at 6 am MYT, around the New York close)
+  const day=t=>Math.floor((t-6*3600)/86400),today=day(d[n-1].time),t0=d.findIndex(x=>day(x.time)===today);
+  const prev=d.filter(x=>day(x.time)===today-1);
+  if(prev.length>=10&&t0>0){const H=Math.max(...prev.map(x=>x.high)),L=Math.min(...prev.map(x=>x.low));
+    C.push({dir:'Sell',kind:'PDH',from:H-.25*a,to:H+.1*a,i:t0,start:t0,power:1});
+    C.push({dir:'Buy',kind:'PDL',from:L-.1*a,to:L+.25*a,i:t0,start:t0,power:1})}
+  // today's VWAP
+  let pv=0,vv=0;for(let i=Math.max(0,t0);i<n;i++){const v=d[i].vol||1;pv+=(d[i].high+d[i].low+d[i].close)/3*v;vv+=v}const vwap=vv?pv/vv:null;
+  // validate: drop broken zones, shrink/drop filled gaps, count retests
+  const live=[];
+  C.forEach(c=>{let touches=0,inside=false,from=c.from,to=c.to,ok=true;
+    for(let j=c.start;j<n;j++){const x=d[j];
+      if(c.dir==='Buy'){if(x.close<from){ok=false;break}if(c.fvg){to=Math.min(to,x.low);if(to<=from){ok=false;break}}
+        const t=x.low<=to;if(t&&!inside)touches++;inside=t}
+      else{if(x.close>to){ok=false;break}if(c.fvg){from=Math.max(from,x.high);if(from>=to){ok=false;break}}
+        const t=x.high>=from;if(t&&!inside)touches++;inside=t}}
+    if(!ok)return;
+    if(c.dir==='Buy'?from>=px:to<=px)return; // must sit below (buy) or above (sell) the price, or contain it
+    if(to-from<.08*a){const m=(from+to)/2;from=m-.04*a;to=m+.04*a}
+    const fresh=touches===0?1.5:touches===1?.5:-.5;
+    const pow=c.kind==='OB'?Math.min(2,c.power-1):c.kind==='FVG'?Math.min(1.5,c.power):0;
+    live.push({...c,from,to,touches,score:BASE[c.kind]+pow+fresh-1.5*(n-1-c.i)/n});
+  });
+  // merge overlapping zones of the same side; confluence raises the score
+  const out=[];
+  ['Buy','Sell'].forEach(dir=>{
+    const L=live.filter(c=>c.dir===dir).sort((x,y)=>x.from-y.from),cl=[];
+    L.forEach(c=>{const g=cl[cl.length-1];
+      if(g&&c.from<=g.to&&Math.max(g.to,c.to)-Math.min(g.from,c.from)<=1.5*a){g.m.push(c);g.from=Math.min(g.from,c.from);g.to=Math.max(g.to,c.to)}
+      else cl.push({from:c.from,to:c.to,m:[c]})});
+    cl.forEach(g=>{
+      const sc=g.m.map(c=>c.score).sort((x,y)=>y-x),best=g.m.reduce((x,y)=>y.score>x.score?y:x);
+      const kinds=[...new Set(g.m.sort((x,y)=>y.score-x.score).map(c=>c.kind))];
+      let score=sc[0]+Math.min(3,.6*sc.slice(1).reduce((x,y)=>x+Math.max(0,y),0));
+      const r10=Math.round(((g.from+g.to)/2)/10)*10;if(r10>=g.from-.15*a&&r10<=g.to+.15*a){score+=.5;kinds.push('$'+r10)}
+      if(vwap&&vwap>=g.from-.15*a&&vwap<=g.to+.15*a){score+=.7;kinds.push('VWAP')}
+      const dist=dir==='Buy'?Math.max(0,px-g.to):Math.max(0,g.from-px);
+      if(dist>8*a)return;
+      out.push({type:dir,from:Math.round(g.from*100)/100,to:Math.round(g.to*100)/100,score,tags:kinds,i:Math.min(...g.m.map(c=>c.i)),fresh:best.touches===0,src:'auto',
+        grade:score>=6?'Strong':score>=4?'Good':'Weak'});
+    });
+  });
+  return['Buy','Sell'].flatMap(dir=>out.filter(z=>z.type===dir).sort((x,y)=>y.score-x.score).slice(0,3));
+}
+/* scalp plan: enter at the zone edge, stop beyond it, target the next opposite zone (or 2R) */
+function plan(z,zs){
+  const a=zATR||1;
+  if(z.type==='Buy'){const e=z.to,sl=z.from-.3*a,r=e-sl;const opp=zs.filter(o=>o.type==='Sell'&&o.from>e).map(o=>o.from).sort((x,y)=>x-y)[0];
+    const tp=opp&&opp-e>=1.2*r?Math.min(opp,e+3*r):e+2*r;return{e,sl,tp,rr:(tp-e)/r}}
+  const e=z.from,sl=z.to+.3*a,r=sl-e;const opp=zs.filter(o=>o.type==='Buy'&&o.to<e).map(o=>o.to).sort((x,y)=>y-x)[0];
+  const tp=opp&&e-opp>=1.2*r?Math.max(opp,e-3*r):e-2*r;return{e,sl,tp,rr:(e-tp)/r}
+}
+const biasFresh=()=>lastBias&&Date.now()-lastBias.t<2*864e5;
+const aiFresh=()=>aiZones&&Date.now()-aiZones.t<3*864e5;
+function allZones(){
+  const z=[];if(showAuto)z.push(...autoZ);
+  if(aiFresh())z.push(...aiZones.zones.map(x=>({...x,src:'ai'})));
+  z.push(...userZones.map(x=>({...x,src:'you'})));return z;
+}
+const srcLabel=z=>z.src==='auto'?`${z.grade}: ${z.tags.join(' + ')}${z.fresh?', untested':''}`:z.src==='ai'?`AI, ${esc(aiZones.ev)}`:'Yours'+(z.note?`, ${esc(z.note)}`:'');
+const isDim=z=>biasFresh()&&z.type!==lastBias.dir;
+function refreshZones(){autoZ=chData.length?autoZones(chData):[];renderZoneEls();renderZoneList();renderBias()}
+function renderZoneEls(){
+  const box=$('#ch-zones');if(!box)return;
+  const zs=allZones();
+  box.innerHTML=zs.map(z=>`<div class="zb ${z.type} ${z.src}${isDim(z)?' dim':''}${z.grade==='Weak'?' weak':''}"><span class="lb">${z.type} ${fmtPx(z.from)}–${fmtPx(z.to)} <i>${z.src==='auto'?esc(z.tags.slice(0,3).join('+'))+', '+z.grade.toLowerCase():z.src==='ai'?'AI':'yours'}</i></span></div>`).join('');
+  zoneEls=[...box.children].map((el,i)=>({el,z:zs[i]}));
+}
+function zoneLoop(){
+  if(!$('#v-chart').classList.contains('on')){chLoop=0;return}
+  if(cs){const w=$('#ch-zones').clientWidth-(ch.priceScale('right').width()||0);
+    zoneEls.forEach(({el,z})=>{const a=cs.priceToCoordinate(z.to),b=cs.priceToCoordinate(z.from);
+      if(a==null||b==null){el.style.display='none';return}
+      let x0=0;if(z.src==='auto'&&z.i!=null){const c=ch.timeScale().logicalToCoordinate(z.i);x0=c==null?0:Math.max(0,Math.min(w-40,c))}
+      el.style.display='block';el.style.top=Math.min(a,b)+'px';el.style.height=Math.max(3,Math.abs(b-a))+'px';el.style.left=x0+'px';el.style.width=(w-x0)+'px';el.classList.toggle('lr',w-x0<280)})}
+  drawCountdown();
+  chLoop=requestAnimationFrame(zoneLoop);
+}
+function renderZoneList(){
+  const all=allZones(),zs=[...all].sort((x,y)=>y.to-x.to);
+  $('#zone-list').innerHTML=zs.length?zs.map(z=>{
+    const dist=lastPx==null?'':z.from>lastPx?`${fmtPx(z.from-lastPx)} above`:z.to<lastPx?`${fmtPx(lastPx-z.to)} below`:'Price is inside';
+    const pl=plan(z,all);
+    return`<li class="${isDim(z)?'dim':''}"><span class="zt ${z.type}">${z.type}</span><span class="zr num">${fmtPx(z.from)} – ${fmtPx(z.to)}<small>${srcLabel(z)}</small><small class="pl">Entry ${fmtPx(pl.e)}, SL ${fmtPx(pl.sl)}, TP ${fmtPx(pl.tp)} (${pl.rr.toFixed(1)}R)</small></span><span class="zd num">${dist}</span>${z.src==='you'?`<button class="icon" aria-label="Delete zone" data-zrm="${z.id}">✕</button>`:'<span></span>'}</li>`}).join('')
+    :'<li class="empty">No zones yet. Turn on auto zones, run an AI analysis with a price, or add your own below.</li>';
+}
+function renderBias(){
+  const el=$('#ch-bias');if(!el)return;
+  el.innerHTML=biasFresh()?`Latest bias: <b class="${lastBias.dir}">${lastBias.dir}</b> from your ${esc(lastBias.type)} ${lastBias.src==='AI analysis'?'AI analysis':'quick check'} (${lastBias.conf}% confidence). ${lastBias.dir} zones are highlighted and the others are faded.`
+    :`No recent bias. Run an analysis and the zones on its side will be highlighted here.`;
+}
+$('#zone-list').addEventListener('click',e=>{const b=e.target.closest('[data-zrm]');if(!b)return;userZones=userZones.filter(z=>z.id!==b.dataset.zrm);store.set('zones',userZones);refreshZones();toast('Zone deleted')});
+$('#z-auto').onchange=()=>{showAuto=$('#z-auto').checked;store.set('showAutoZones',showAuto);refreshZones()};
+$('#z-add').onclick=()=>{
+  const a=parseNum($('#z-from').value),b=parseNum($('#z-to').value);
+  if(a===null||b===null||a<=0||b<=0){toast('Enter both prices for the zone');return}
+  if(Math.abs(a-b)<.01){toast('From and To need to be different prices');return}
+  const z={id:uid(),type:$('#z-type').value,from:Math.min(a,b),to:Math.max(a,b),note:$('#z-note').value.trim()};
+  userZones.push(z);store.set('zones',userZones);$('#z-from').value=$('#z-to').value=$('#z-note').value='';refreshZones();toast(`${z.type} zone added`);
+};
+$('#z-match').onclick=async()=>{
+  const b=parseNum($('#z-broker').value);if(b===null||b<=0){toast("Type your broker's current XAUUSD price first");return}
+  try{if(rawLast===null||Date.now()-lastPxAt>60e3){const j=await fetchKl('1m',1);rawLast=+j[j.length-1][4]}
+    pxOffset={src:SOURCES[srcIdx].name,val:Math.round((b-rawLast)*100)/100};store.set('pxOffset',pxOffset);$('#z-broker').value='';
+    if(cs)reapply();toast(`Chart shifted ${pxOffset.val>=0?'+':''}${pxOffset.val.toFixed(2)} to match your broker`)}catch(e){toast("Couldn't reach the price feed: "+e.message)}
+};
+$('#z-unmatch').onclick=async()=>{pxOffset=null;store.set('pxOffset',null);await syncSpot();if(cs)reapply();toast(offMode()==='spot'?'Chart matched to live spot gold again':'Chart shows the raw feed price')};
+document.addEventListener('visibilitychange',()=>{if(document.hidden){stopFeed();return}startFeed();if($('#v-chart').classList.contains('on'))pollChart()});
+
+/* ---------- live feed: a tick every second over a WebSocket, REST every 3 s as backup ----------
+   Updates the home price, the chart's last candle (new candles open on time), the Ask line and the bar countdown. */
+const TF_SEC={'1m':60,'5m':300,'15m':900,'1h':3600,'4h':14400,'1d':86400};
+let ws=null,wsSrc=-1,wsOk=false,feedTimer=0,restTimer=0,spotTimer=0,feedFails=0,useTV=false,askLine=null,ref24=null,prevTk=null,lastTickAt=0;
+let spread=store.get('spread',0.2);
+const wsUrl=i=>i<=1?'wss://fstream.binance.com/ws/xauusdt@markPrice@1s':'wss://data-stream.binance.vision/ws/paxgusdt@miniTicker';
+function startFeed(){
+  stopFeed();wsSrc=srcIdx;
+  try{ws=new WebSocket(wsUrl(wsSrc));
+    ws.onmessage=e=>{try{const m=JSON.parse(e.data);
+      const p=m.e==='markPriceUpdate'?+(wsSrc===0?m.i:m.p):m.e==='24hrMiniTicker'?+m.c:NaN;
+      if(p>0){wsOk=true;feedFails=0;onTick(p,m.E||Date.now())}}catch(_){}};
+    ws.onclose=()=>{wsOk=false;ws=null;clearTimeout(feedTimer);if(!document.hidden)feedTimer=setTimeout(startFeed,5000)};
+    ws.onerror=()=>{try{ws&&ws.close()}catch(_){}};
+  }catch(e){}
+  restTimer=setInterval(()=>{if(!wsOk||Date.now()-lastTickAt>8000)restTick()},3000);
+  spotTimer=setInterval(async()=>{if(pxOffset===null&&await syncSpot())reapply()},60e3);
+  if(pxOffset===null)syncSpot().then(c=>{if(c)reapply()});
+  loadRef24();restTick();
+}
+function stopFeed(){clearTimeout(feedTimer);clearInterval(restTimer);clearInterval(spotTimer);if(ws){ws.onclose=null;try{ws.close()}catch(_){}ws=null}wsOk=false}
+async function restTick(){
+  try{const j=await fetchKl('1m',1);if(srcIdx!==wsSrc){startFeed();return}onTick(+j[j.length-1][4],Date.now());feedFails=0}
+  catch(e){if(++feedFails>=3)feedDown()}
+}
+async function loadRef24(){try{const j=await fetchKl('1h',25);ref24=+j[0][4]}catch(e){}}
+function feedDown(){
+  $('#tk-src').innerHTML='<span class="live-dot"></span>Live XAUUSD quote from TradingView';
+  if(!useTV){useTV=true;tvMode=null;renderTV(true)}
+  $('#ch-dot').classList.remove('on');
+}
+function tickerHTML(){return'<div class="tk"><b class="num" id="tk-px">—</b><span class="chg num" id="tk-chg"></span><span class="ba num" id="tk-ba"></span></div>'}
+function onTick(raw,t){
+  lastTickAt=Date.now();rawLast=raw;
+  const px=raw+offNow();lastPx=px;lastPxAt=Date.now();
+  if(useTV||!$('#tk-px')){useTV=false;tvMode=null;const box=$('#tv-box');box.className='tv';box.innerHTML=tickerHTML()}
+  // home ticker
+  const el=$('#tk-px');el.textContent=fmtPx(px);
+  if(prevTk!==null&&px!==prevTk){el.classList.remove('up','down');el.classList.add(px>prevTk?'up':'down');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('up','down'),600)}
+  prevTk=px;
+  if(ref24){const r=ref24+offNow(),d=px-r;const c=$('#tk-chg');c.className='chg num '+(d>=0?'up':'down');c.textContent=`${d>=0?'+':''}${fmtPx(d)} (${d>=0?'+':''}${(d/r*100).toFixed(2)}%) 24h`}
+  $('#tk-ba').innerHTML=`Bid <b>${fmtPx(px)}</b>&nbsp;&nbsp;Ask <b>${fmtPx(px+spread)}</b>`;
+  const m=offMode();$('#tk-src').innerHTML=`<span class="live-dot on"></span>Live${wsOk?'':' (every 3 s)'}, ${m==='broker'?'matched to your broker':m==='spot'?'matched to spot gold':'Binance gold index'}`;
+  $('#ch-dot').classList.add('on');
+  // chart: grow the last candle or open a new one on time
+  if(chRaw.length){
+    const sec=TF_SEC[chTf]||300,ot=Math.floor(t/1000/sec)*sec*1000,L=chRaw[chRaw.length-1];let nb=false;
+    if(ot===L[0]){L[2]=String(Math.max(+L[2],raw));L[3]=String(Math.min(+L[3],raw));L[4]=String(raw)}
+    else if(ot>L[0]){chRaw.push([ot,L[4],String(Math.max(+L[4],raw)),String(Math.min(+L[4],raw)),String(raw),'0']);nb=true}
+    else return;
+    const b=toBar(chRaw[chRaw.length-1]);if(cs)cs.update(b);
+    if(chData.length&&chData[chData.length-1].time===b.time)chData[chData.length-1]=b;else chData.push(b);
+    setPrice();updAsk();if(nb)refreshZones();
+  }
+}
+function updAsk(){
+  if(!cs||lastPx==null)return;const p=lastPx+spread;
+  if(!spread){if(askLine){cs.removePriceLine(askLine);askLine=null}return}
+  if(!askLine)askLine=cs.createPriceLine({price:p,color:cssVar('--sell'),lineWidth:1,lineStyle:2,axisLabelVisible:true,title:'Ask'});else askLine.applyOptions({price:p});
+}
+const fmtLeft=r=>{const h=Math.floor(r/3600),m=Math.floor(r%3600/60),x=r%60;return h?`${h}:${pad(m)}:${pad(x)}`:`${pad(m)}:${pad(x)}`};
+function drawCountdown(){
+  const cd=$('#ch-cd'),L=chData[chData.length-1];if(!cs||!L){cd.style.display='none';return}
+  const y=cs.priceToCoordinate(L.close),w=ch.priceScale('right').width();if(y==null||!w){cd.style.display='none';return}
+  const end=(L.time-MYT+(TF_SEC[chTf]||300))*1000,r=Math.max(0,Math.ceil((end-Date.now())/1000));
+  const txt=fmtLeft(r);if(cd.textContent!==txt)cd.textContent=txt;
+  const ya=spread?cs.priceToCoordinate(L.close+spread):null,clash=ya!=null&&Math.abs(ya-y)<18; // Ask label pushes the Bid label down
+  cd.style.display='block';cd.style.top=(y+(clash?27:10))+'px';cd.style.width=w+'px';
+}
+$('#z-spread').value=spread?String(spread):'';
+$('#z-spread').onchange=()=>{const v=parseNum($('#z-spread').value);spread=v!==null&&v>=0&&v<20?v:0;store.set('spread',spread);$('#z-spread').value=spread?String(spread):'';updAsk();if(lastPx!=null&&$('#tk-ba'))$('#tk-ba').innerHTML=`Bid <b>${fmtPx(lastPx)}</b>&nbsp;&nbsp;Ask <b>${fmtPx(lastPx+spread)}</b>`;toast(spread?`Ask line set ${spread.toFixed(2)} above Bid`:'Ask line hidden')};
+
 /* colour theme */
 const NAMES_T={onyx:'Onyx',navy:'Midnight navy',plum:'Royal plum',espresso:'Espresso',emerald:'Emerald',wine:'Bordeaux',ivory:'Ivory'};
-function setTheme(t,say){if(!NAMES_T[t])t='onyx';document.documentElement.dataset.theme=t;try{document.querySelector('meta[name=theme-color]').content=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#0F0F11'}catch(e){}store.set('theme',t);$$('[data-theme-pick]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.themePick===t));$('#theme-name').textContent='Current theme: '+NAMES_T[t];renderTV();if(say)toast(NAMES_T[t]+' theme')}
+function setTheme(t,say){if(!NAMES_T[t])t='onyx';document.documentElement.dataset.theme=t;try{document.querySelector('meta[name=theme-color]').content=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#0F0F11'}catch(e){}store.set('theme',t);$$('[data-theme-pick]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.themePick===t));$('#theme-name').textContent='Current theme: '+NAMES_T[t];renderTV();if(typeof chartColors==='function'&&ch)chartColors();if(typeof renderTVChart==='function'&&chMode==='tv'&&$('#v-chart').classList.contains('on'))renderTVChart();if(say)toast(NAMES_T[t]+' theme')}
 
 /* live XAUUSD price only, no chart (TradingView single-quote widget) */
 let tvMode=null;
 function renderTV(force){
-  const box=$('#tv-box');if(!box)return;
+  const box=$('#tv-box');if(!box||!useTV)return; // only used when our own live feed is down
   const mode=document.documentElement.dataset.theme==='ivory'?'light':'dark';
   if(mode===tvMode&&!force)return;
   const off=msg=>{tvMode=null;box.className='tv off';box.textContent=msg};
@@ -937,7 +1410,7 @@ $('#s-restore').onclick=()=>{deleted.clear();store.set('deleted',[]);const n=syn
 /* settings: backup and restore (API key is never included) */
 $('#s-export').onclick=()=>{
   const data={app:'gold-abyss-x79',version:2,exported:new Date().toISOString(),events,history,deleted:[...deleted],
-    settings:{theme:store.get('theme','onyx'),gmodel:store.get('gmodel',''),lead,showClaims,hidePast}};
+    zones:userZones,settings:{theme:store.get('theme','onyx'),gmodel:store.get('gmodel',''),lead,showClaims,hidePast,pxOffset}};
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,1)],{type:'application/json'}));
   a.download=`gold-abyss-backup-${new Date(Date.now()+8*36e5).toISOString().slice(0,10)}.json`;document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);
   toast('Backup downloaded');
@@ -957,9 +1430,11 @@ $('#s-file').onchange=async()=>{
     if(typeof st.showClaims==='boolean'){showClaims=st.showClaims;store.set('showClaims',showClaims)}
     if(typeof st.hidePast==='boolean'){hidePast=st.hidePast;store.set('hidePast',hidePast)}
     if(st.gmodel)store.set('gmodel',st.gmodel);
+    if(Array.isArray(d.zones)){userZones=d.zones.filter(z=>z&&z.id&&z.from<z.to);store.set('zones',userZones)}
+    if(st.pxOffset!==undefined){pxOffset=st.pxOffset;store.set('pxOffset',pxOffset)}
     syncEvents();saveEv();store.set('history',history);store.set('deleted',[...deleted]);
     if(st.theme)setTheme(st.theme);
-    syncToggles();renderCalKeep();renderHist();renderRecord();tick();toast('Backup restored');
+    syncToggles();renderCalKeep();renderHist();renderRecord();tick();if(cs)loadChart().catch(()=>{});toast('Backup restored');
   }catch(e){toast('Could not restore: '+e.message)}
 };
 $$('[data-theme-pick]').forEach(b=>b.onclick=()=>setTheme(b.dataset.themePick,true));
@@ -969,6 +1444,7 @@ setTheme(store.get('theme','onyx'));
 /* init */
 events.sort((a,b)=>a.at-b.at);
 syncToggles();renderCal();renderHist();renderRecord();updNotifBtn();tick();setInterval(tick,1000);
+$('#tv-box').innerHTML=tickerHTML();startFeed();
 // refresh the calendar once a day while the app stays open
 setInterval(()=>{if(syncEvents()){saveEv();renderCalKeep()}},6*36e5);
 if(store.get('gkey','')&&Date.now()-store.get('gmodelsAt',0)>7*864e5)refreshModels(true);

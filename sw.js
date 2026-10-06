@@ -1,6 +1,6 @@
 /* Gold Abyss X79 service worker.
    Bump VERSION whenever you upload a new index.html so phones pick up the update. */
-const VERSION = 'gax79-v7';
+const VERSION = 'gax79-v15';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
