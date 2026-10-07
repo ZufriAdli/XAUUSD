@@ -488,7 +488,7 @@ b.up{color:var(--buy)}b.down{color:var(--sell)}
     <div class="tvc" id="tvc" hidden></div>
     <div class="ch-head">
       <div class="ch-price"><b class="num" id="ch-px">—</b><span class="num" id="ch-chg"></span></div>
-      <span class="ch-src"><span class="live-dot" id="ch-dot"></span><span id="ch-src">XAUUSD, times in MYT</span></span>
+      <span class="ch-src"><span class="live-dot" id="ch-dot"></span><span id="ch-src">XAUUSD, times in MYT</span><span id="ch-age"></span></span>
     </div>
     <div class="ch-wrap">
       <div id="ch"></div>
@@ -583,7 +583,8 @@ b.up{color:var(--buy)}b.down{color:var(--sell)}
         <button class="btn small" id="push-btn">Turn on on this phone</button>
       </div>
       <p class="set-note" id="push-status" style="margin-top:12px"></p>
-      <div class="cta" style="margin-top:18px"><button class="btn small ghost" id="tg-test">Send test to both</button></div>
+      <div class="cta" style="margin-top:18px"><button class="btn small ghost" id="tg-test">Send test to both</button><button class="btn small ghost" id="robot-check">Check robot</button></div>
+      <p class="set-note" id="robot-health" style="margin-top:12px"></p>
     </div>
 
     <div class="step">
@@ -1138,7 +1139,8 @@ let pxOffset=store.get('pxOffset',null); // {src,val}: shift so the chart matche
 let userZones=store.get('zones',[]),aiZones=store.get('aiZones',null),lastBias=store.get('lastBias',null),showAuto=store.get('showAutoZones',true),autoZ=[],zoneEls=[];
 // spot match: gold-api.com gives the live spot XAU price; the chart is shifted by (spot - feed) unless you set your broker's price
 const SPOT_URL='https://api.gold-api.com/price/XAU';
-let spotOff=null,chRaw=[],pollN=0; // spotOff: {src,val,at}
+let spotOff=null,chRaw=[],pollN=0,chGen=-1,chReloading=false; // spotOff: {src,val,at}; chGen = source generation of chRaw
+function reloadForNewSource(){if(chReloading)return;chReloading=true;loadChart().catch(()=>{}).finally(()=>{chReloading=false})}
 const offMode=()=>pxOffset&&pxOffset.src===SOURCES[srcIdx].name?'broker':spotOff&&spotOff.src===SOURCES[srcIdx].name&&Date.now()-spotOff.at<15*6e4?'spot':'none';
 const offNow=()=>{const m=offMode();return m==='broker'?pxOffset.val:m==='spot'?spotOff.val:0};
 async function syncSpot(){ // returns true if the shift changed enough to redraw
@@ -1151,6 +1153,7 @@ async function syncSpot(){ // returns true if the shift changed enough to redraw
   }catch(e){return false}
 }
 function reapply(){ // redraw with the current shift, keeping the view where it is
+  if(chGen!==srcGen){reloadForNewSource();return}
   if(!cs||!chRaw.length)return;const r=ch.timeScale().getVisibleLogicalRange();
   chData=chRaw.map(toBar);cs.setData(chData);if(r)ch.timeScale().setVisibleLogicalRange(r);setPrice();refreshZones();
 }
@@ -1166,17 +1169,31 @@ async function fromSource(i,tf,n,ms){
     const j=await r.json();if(!Array.isArray(j)||!j.length)throw new Error('no data');return j}
   catch(e){throw e.name==='AbortError'?new Error('timed out'):e}finally{clearTimeout(t)}
 }
-let srcOkAt=0;
+let srcOkAt=0,srcGen=0,srcRace=null; // srcGen goes up whenever the price source changes, so data from two sources never gets mixed
 async function fetchKl(tf,n){
-  // the source that worked last gets a quick try on its own
-  if(Date.now()-srcOkAt<10*6e4){try{const j=await fromSource(srcIdx,tf,n,4000);srcOkAt=Date.now();return j}catch(e){}}
+  // stay on the source we already use (every timeframe must come from the same place, sources differ by a few dollars)
+  if(srcRace){try{await srcRace}catch(e){}} // someone is already choosing a source: wait and use the same one
+  if(srcOkAt){try{const j=await fromSource(srcIdx,tf,n,6000);srcOkAt=Date.now();return j}catch(e){}}
+  if(srcRace){try{await srcRace}catch(e){}if(srcOkAt){try{return await fromSource(srcIdx,tf,n,6000)}catch(e){}}}
+  const before=srcOkAt?srcIdx:-1;
   // otherwise ask every source at once and keep the best (earliest in the list) that answers in time
   // (a better source that answers within 0.4 s of a worse one still wins; blocked ones are never waited on)
-  return new Promise((ok,no)=>{const got=[];let left=SOURCES.length,done=false,grace=0;
-    const pick=()=>{if(done)return;const i=got.findIndex(Boolean);if(i<0)return;done=true;clearTimeout(grace);srcIdx=i;srcOkAt=Date.now();ok(got[i])};
-    SOURCES.forEach((_,i)=>fromSource(i,tf,n,6000).then(j=>{got[i]=j;if(got.slice(0,i).every((x,k)=>x===false))pick();else if(!grace)grace=setTimeout(pick,400)},()=>{got[i]=false;if(got.some(Boolean)&&got.findIndex(Boolean)>=0&&SOURCES.every((_,k)=>k>=got.findIndex(Boolean)||got[k]===false))pick()})
+  srcOkAt=0;
+  const race=new Promise((ok,no)=>{const got=[];let left=SOURCES.length,done=false,grace=0;
+    // prefer the source we were already on, then the earliest in the list; never wait on blocked ones
+    const choose=()=>before>=0&&got[before]?before:got.findIndex(Boolean);
+    const pick=()=>{if(done)return;const i=choose();if(i<0)return;done=true;clearTimeout(grace);if(i!==before)srcGen++;srcIdx=i;srcOkAt=Date.now();ok(got[i])};
+    const settle=()=>{if(done)return;const i=got.findIndex(Boolean);if(i<0)return;
+      const waitFor=k=>k>=0&&got[k]===undefined; // still pending
+      if(before>=0&&got[before])return pick();
+      const earlierPending=SOURCES.some((_,k)=>k<i&&waitFor(k));
+      if(!waitFor(before)&&!earlierPending)return pick();
+      if(!grace)grace=setTimeout(pick,waitFor(before)?1500:400)};
+    SOURCES.forEach((_,i)=>fromSource(i,tf,n,6000).then(j=>{got[i]=j;settle()},()=>{got[i]=false;settle()})
       .finally(()=>{if(--left===0&&!done){if(got.some(Boolean))pick();else{done=true;no(new Error('no price source reachable (all blocked or timed out)'))}}}));
   });
+  srcRace=race;race.catch(()=>{}).finally(()=>{if(srcRace===race)srcRace=null});
+  return race;
 }
 const toBar=k=>{const o=offNow();return{time:Math.floor(k[0]/1000)+MYT,open:+k[1]+o,high:+k[2]+o,low:+k[3]+o,close:+k[4]+o,vol:+k[5]||0}};
 async function livePrice(){
@@ -1235,7 +1252,7 @@ function drawData(){
 async function loadChart(){
   if(cs)chMsg('Loading prices…');
   const j=await fetchKl(chTf,1000);if(pxOffset===null){const sp=syncSpot();if(!await Promise.race([sp.then(()=>true),new Promise(r=>setTimeout(()=>r(false),1500))]))sp.then(c=>{if(c)reapply()})} /* don't hold the chart for the spot price */
-  chRaw=j;chData=j.map(toBar);rawLast=+j[j.length-1][4];
+  chRaw=j;chGen=srcGen;chData=j.map(toBar);rawLast=+j[j.length-1][4];
   chLoadedAt=Date.now();
   if(cs){cs.setData(chData);updAsk();const n=chData.length;ch.timeScale().setVisibleLogicalRange({from:Math.max(0,n-160),to:n+8})}
   setPrice();refreshZones();chMsg('');
@@ -1243,6 +1260,7 @@ async function loadChart(){
 async function pollChart(){
   if(!$('#v-chart').classList.contains('on')||document.hidden||!chRaw.length)return;
   try{const j=await fetchKl(chTf,2);let nb=false;
+    if(chGen!==srcGen){reloadForNewSource();return}
     j.forEach(k=>{const L=chRaw[chRaw.length-1];if(L&&L[0]===k[0])chRaw[chRaw.length-1]=k;else if(!L||k[0]>L[0]){chRaw.push(k);nb=true}});
     j.map(toBar).forEach(b=>{if(cs)cs.update(b);const L=chData[chData.length-1];if(L&&L.time===b.time)chData[chData.length-1]=b;else if(!L||b.time>L.time)chData.push(b)});
     rawLast=+j[j.length-1][4];setPrice();if(nb)refreshZones();else renderZoneList();}catch(e){}
@@ -1455,28 +1473,45 @@ function startFeed(){
     if(SOURCES[wsSrc].cb){const w=ws;ws.onopen=()=>{try{w.send(JSON.stringify({type:'subscribe',product_ids:['PAXG-USD'],channels:['ticker']}))}catch(_){}}}
     ws.onmessage=e=>{try{const m=JSON.parse(e.data);
       const p=m.e==='markPriceUpdate'?+(wsSrc===0?m.i:m.p):m.e==='24hrMiniTicker'?+m.c:m.type==='ticker'?+m.price:NaN;
-      if(p>0){wsOk=true;feedFails=0;onTick(p,m.E||Date.now())}}catch(_){}};
+      if(p>0){if(wsSrc!==srcIdx){startFeed();return}wsOk=true;feedFails=0;onTick(p,m.E||Date.now())}}catch(_){}};
     ws.onclose=()=>{wsOk=false;ws=null;clearTimeout(feedTimer);if(!document.hidden)feedTimer=setTimeout(startFeed,5000)};
     ws.onerror=()=>{try{ws&&ws.close()}catch(_){}};
   }catch(e){}
   restTimer=setInterval(()=>{if(!wsOk||Date.now()-lastTickAt>8000)restTick()},3000);
+  spotPollT=setInterval(pollSpot,3000);
   spotTimer=setInterval(async()=>{if(pxOffset===null&&await syncSpot())reapply()},60e3);
   if(pxOffset===null)syncSpot().then(c=>{if(c)reapply()});
   loadRef24();restTick();
 }
-function stopFeed(){clearTimeout(feedTimer);clearInterval(restTimer);clearInterval(spotTimer);if(ws){ws.onclose=null;try{ws.close()}catch(_){}ws=null}wsOk=false}
+/* live tick from spot gold every 3 s; used only while it is actually moving, otherwise the exchange feed is used */
+let spotPollT=0,spotLastPx=null,spotBackoff=0,spotChanges=[];
+const spotGood=()=>{const t=Date.now();spotChanges=spotChanges.filter(x=>t-x<60e3);return spotChanges.length>=4};
+async function pollSpot(){
+  if(document.hidden||Date.now()<spotBackoff)return;
+  if(!(spotOff&&spotOff.src===SOURCES[srcIdx].name))return; // need the link between spot and the chart's source first
+  try{const r=await fetch(SPOT_URL,{signal:AbortSignal.timeout?AbortSignal.timeout(2500):undefined});
+    if(r.status===429){spotBackoff=Date.now()+30e3;return}
+    if(!r.ok)return;const p=+(await r.json()).price;if(!(p>0))return;
+    if(p!==spotLastPx){spotLastPx=p;spotChanges.push(Date.now());if(spotGood())onTick(p-spotOff.val,Date.now(),true)}
+  }catch(e){}
+}
+function stopFeed(){clearInterval(spotPollT);clearTimeout(feedTimer);clearInterval(restTimer);clearInterval(spotTimer);if(ws){ws.onclose=null;try{ws.close()}catch(_){}ws=null}wsOk=false}
 async function restTick(){
   try{const j=await fetchKl('1m',1);if(srcIdx!==wsSrc){startFeed();return}onTick(+j[j.length-1][4],Date.now());feedFails=0}
   catch(e){if(++feedFails>=3)feedDown()}
 }
-async function loadRef24(){try{const j=await fetchKl('1h',25);ref24=+j[0][4]}catch(e){}}
+let refGen=-1;
+async function loadRef24(){try{const j=await fetchKl('1h',25);ref24=+j[0][4];refGen=srcGen}catch(e){}}
 function feedDown(){
   $('#tk-src').innerHTML='<span class="live-dot"></span>Live XAUUSD quote from TradingView';
   if(!useTV){useTV=true;tvMode=null;renderTV(true)}
   $('#ch-dot').classList.remove('on');
 }
 function tickerHTML(){return'<div class="tk"><b class="num" id="tk-px">—</b><span class="chg num" id="tk-chg"></span><span class="ba num" id="tk-ba"></span></div>'}
-function onTick(raw,t){
+let tickFromSpot=false;
+function onTick(raw,t,fromSpot){
+  if(!fromSpot&&spotGood())return; // spot is live: don't mix in the exchange's price
+  tickFromSpot=!!fromSpot;
   lastTickAt=Date.now();rawLast=raw;
   const px=raw+offNow();lastPx=px;lastPxAt=Date.now();
   if(useTV||!$('#tk-px')){useTV=false;tvMode=null;const box=$('#tv-box');box.className='tv';box.innerHTML=tickerHTML()}
@@ -1484,11 +1519,13 @@ function onTick(raw,t){
   const el=$('#tk-px');el.textContent=fmtPx(px);
   if(prevTk!==null&&px!==prevTk){el.classList.remove('up','down');el.classList.add(px>prevTk?'up':'down');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('up','down'),600)}
   prevTk=px;
+  if(ref24&&refGen!==srcGen){ref24=null;loadRef24()}
   if(ref24){const r=ref24+offNow(),d=px-r;const c=$('#tk-chg');c.className='chg num '+(d>=0?'up':'down');c.textContent=`${d>=0?'+':''}${fmtPx(d)} (${d>=0?'+':''}${(d/r*100).toFixed(2)}%) 24h`}
   $('#tk-ba').innerHTML=`Bid <b>${fmtPx(px)}</b>&nbsp;&nbsp;Ask <b>${fmtPx(px+spread)}</b>`;
-  const m=offMode();$('#tk-src').innerHTML=`<span class="live-dot on"></span>Live${wsOk?'':' (every 3 s)'}, ${m==='broker'?'matched to your broker':m==='spot'?'matched to spot gold':'Binance gold index'}`;
+  const m=offMode();$('#tk-src').innerHTML=`<span class="live-dot on"></span>Live${wsOk?'':' (every 3 s)'}, ${tickFromSpot?'spot gold':SOURCES[srcIdx].name.replace(/ \(.*\)/,'')}${m==='broker'?', matched to your broker':m==='spot'&&!tickFromSpot?', matched to spot gold':''}`;
   $('#ch-dot').classList.add('on');
   // chart: grow the last candle or open a new one on time
+  if(chRaw.length&&chGen!==srcGen){reloadForNewSource();return}
   if(chRaw.length){
     const sec=TF_SEC[chTf]||300,ot=Math.floor(t/1000/sec)*sec*1000,L=chRaw[chRaw.length-1];let nb=false;
     if(ot===L[0]){L[2]=String(Math.max(+L[2],raw));L[3]=String(Math.min(+L[3],raw));L[4]=String(raw)}
@@ -1506,6 +1543,10 @@ function updAsk(){
   if(!askLine)askLine=cs.createPriceLine({price:p,color:cssVar('--sell'),lineWidth:1,lineStyle:2,axisLabelVisible:true,title:'Ask'});else askLine.applyOptions({price:p});
 }
 const fmtLeft=r=>{const h=Math.floor(r/3600),m=Math.floor(r%3600/60),x=r%60;return h?`${h}:${pad(m)}:${pad(x)}`:`${pad(m)}:${pad(x)}`};
+setInterval(()=>{const a=$('#ch-age');if(!a)return;if(!lastTickAt){a.textContent='';return}
+  const sec=Math.round((Date.now()-lastTickAt)/1000);
+  a.textContent=` · price ${sec<2?'updated now':`updated ${sec}s ago`}${tickFromSpot?' (spot gold, every 3 s)':''}`;
+  a.style.color=sec>30?'var(--sell)':''},1000);
 function drawCountdown(){
   const cd=$('#ch-cd'),L=chData[chData.length-1];if(!cs||!L){cd.style.display='none';return}
   const y=cs.priceToCoordinate(L.close),w=ch.priceScale('right').width();if(y==null||!w){cd.style.display='none';return}
@@ -1645,6 +1686,22 @@ $('#tg-test').onclick=async()=>{tgRead();if(!tgReady()){tgShow('Fill in the robo
     if(j.push&&j.push.length)pushShow(j.push.map(r=>`<b>${esc(r.name||'phone')}:</b> ${pushExplain(r)}`).join('<br>'),j.push.some(r=>!r.ok));
     else if(tgc.push)pushShow("The robot has no phone on its list, so the test only went to Telegram. Tap Turn off, then Turn on again on this phone.",true);
   }catch(e){tgShow(e.message,true)}};
+
+/* robot health: when it last ran by itself (with the app closed too) */
+async function robotHealth(){
+  const el=$('#robot-health');if(!el)return;
+  if(!tgReady()){el.textContent='';return}
+  try{const st=await tgCall('/status'),r=st.run;
+    if(!r){el.style.color='var(--sell)';el.innerHTML='The robot has not reported yet. Paste the latest <b>worker.js</b> into Cloudflare and Deploy, and check that the Cron trigger is set to every minute. It reports within 10 minutes.';return}
+    const ago=Math.round((Date.now()-r.at)/6e4),stale=ago>25;
+    el.style.color=stale||r.err?'var(--sell)':'';
+    el.innerHTML=stale?`⚠️ The robot last ran <b>${ago} minutes ago</b>. In Cloudflare, open the worker, then Settings, Trigger events, and make sure the Cron trigger runs every minute.`
+      :`✅ Robot working: last report ${ago<1?'just now':ago+' min ago'} (it reports every 10 minutes)${r.px?`, gold ${fmtPx(r.px)}${r.src?' from '+esc(r.src):''}`:''}${r.zones!=null?`, watching ${r.zones} zone${r.zones===1?'':'s'}`:''}. Phones: ${st.phones?st.phones.length:0}, Telegram: ${st.linked?'connected':'not connected'}.`+
+        (r.err?`<br>Problem on its last run: ${esc(r.err)}`:'');
+  }catch(e){el.style.color='var(--sell)';el.textContent="Couldn't reach the robot: "+(e.message==='Failed to fetch'?'check the address':e.message)}
+}
+$('#robot-check').onclick=()=>{$('#robot-health').textContent='Checking…';robotHealth()};
+document.addEventListener('click',e=>{const t=e.target.closest('[data-go="set"]');if(t)setTimeout(robotHealth,300)});
 
 /* check this phone is still on the robot's list (e.g. after the worker was replaced) */
 async function pushCheck(){
