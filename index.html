@@ -318,6 +318,10 @@ footer{border-top:1px solid var(--line);padding:28px 0;color:var(--muted);font-s
 .sw input{width:auto;accent-color:var(--gold-fill)}
 .za{display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px;padding:14px 16px;margin:0 0 10px;border:1px solid var(--hair);border-radius:14px;background:var(--soft)}
 .za .za-main{color:var(--ink);font-size:15px}
+.ztf-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 12px}
+.zones .zt small.ztf{display:block;font-family:var(--sans);font-style:normal;font-size:12px;font-weight:700;color:var(--muted);margin-top:4px;letter-spacing:.02em}
+.zb .lb b{font-weight:800;margin-right:4px}
+.zb.nolb .lb{display:none}
 .sub-h{font-family:var(--sans);font-size:15px;font-weight:700;margin:22px 0 10px}
 .za select{width:auto;flex:0 1 320px}
 #za-status b.Buy{color:var(--buy)}#za-status b.Sell{color:var(--sell)}
@@ -500,6 +504,10 @@ b.up{color:var(--buy)}b.down{color:var(--sell)}
 
     <div class="block" style="margin-top:40px">
       <div class="block-h"><h2>Buy and sell zones</h2><label class="sw"><input type="checkbox" id="z-auto"> Show auto zones</label></div>
+      <div class="ztf-row"><span class="muted" style="font-size:14px;font-weight:600">Zone timeframes</span>
+        <div class="seg" role="group" aria-label="Zone timeframes">
+          <button class="btn small ghost" data-ztf="1m">M1</button><button class="btn small ghost" data-ztf="5m">M5</button><button class="btn small ghost" data-ztf="15m">M15</button><button class="btn small ghost" data-ztf="1h">H1</button><button class="btn small ghost" data-ztf="4h">H4</button>
+        </div></div>
       <div class="za">
         <label class="sw za-main"><input type="checkbox" id="za-on"> Alert me when price enters a zone</label>
         <select id="za-which" aria-label="Which zones to alert on"><option value="good">Strong and good zones, AI zones and yours</option><option value="all">All zones, including weak ones</option></select>
@@ -507,7 +515,7 @@ b.up{color:var(--buy)}b.down{color:var(--sell)}
       </div>
       <p class="note" id="za-status" style="margin:0 0 14px"></p>
       <p class="note" id="tv-note" style="margin-bottom:12px" hidden>The live chart comes straight from TradingView, so the app can't draw on it. Use these zones as levels, or draw them yourself with TradingView's rectangle tool. Switch to <b>Zones chart</b> to see them drawn automatically with the Ask line and bar countdown.</p>
-      <p class="note" style="margin-bottom:16px">Auto zones combine order blocks (OB), fair value gaps (FVG), liquidity swings, the previous day's high and low (PDH/PDL), round $10 levels and today's VWAP. Broken or filled zones are removed, untested zones score higher, and the best three on each side are shown. Each zone has a scalp plan: enter at the zone edge, stop just beyond it, target the next opposite zone or 2R. AI zones come from your latest AI analysis. Zones against your latest bias are faded.</p>
+      <p class="note" style="margin-bottom:16px">Auto zones combine order blocks (OB), fair value gaps (FVG), liquidity swings, the previous day's high and low (PDH/PDL), round $10 levels and today's VWAP. Broken or filled zones are removed and untested zones score higher. Each zone is labelled with the timeframe it comes from (M5, H1…); a zone sitting inside a higher-timeframe zone is marked "inside H1" and scores higher. The best two on each side are shown for every timeframe you pick. Each zone has a scalp plan: enter at the zone edge, stop just beyond it, target the next opposite zone or 2R. AI zones come from your latest AI analysis. Zones against your latest bias are faded.</p>
       <ul class="zones" id="zone-list"></ul>
     </div>
 
@@ -1016,7 +1024,7 @@ Status: ${f.ev.at<=Date.now()?'already released':'not released yet'}
 Data (first line is the headline figure):
 ${f.rows.map(r=>`- ${r.l}: forecast ${r.fc||'none'}, previous ${r.pv||'none'}, actual ${r.ac||'not released yet'}${r.s<0?' (note: higher figure = weaker economy = weaker USD)':''}`).join('\n')}
 ${TONE_TYPES.has(f.ev.type)?`Statement/speech tone (user's read): ${f.tone||'not out yet'}\nNote: for this event the market reacts mostly to the tone, rate path and (for FOMC) the dot plot and press conference versus expectations, not just the headline rate.\n`:''}Current XAUUSD price: ${pxUsed||'not given'}
-${autoZ.length?`Nearby zones from recent swing highs/lows on the ${chTf} chart: ${autoZ.map(z=>`${z.type} ${z.from}-${z.to} (${z.tags.join('+')}, ${z.grade.toLowerCase()})`).join('; ')}\n`:''}User context: ${f.ctx||'none'}
+${autoZ.length?`Nearby zones (timeframe, side, range, why): ${autoZ.map(z=>`${z.tfs?z.tfs[0]:''} ${z.type} ${z.from}-${z.to} (${z.tags.join('+')}, ${z.grade.toLowerCase()})`).join('; ')}\n`:''}User context: ${f.ctx||'none'}
 
 If actual figures are available, assess the surprise versus forecast. Weigh all the data together (the headline figure matters most) and say if the signals are mixed. If not yet released, still pick Buy or Sell: decide the more likely side using forecast vs previous, the recent trend, typical market positioning and the user context, then lay out scenarios. If the edge is weak, still pick a side and lower the confidence (around 50-60) instead of going neutral.
 Be honest about uncertainty; confidence should rarely exceed 75. Do not give price levels if the current price was not provided.
@@ -1360,11 +1368,25 @@ function autoZones(d){
 }
 /* scalp plan: enter at the zone edge, stop beyond it, target the next opposite zone (or 2R) */
 function plan(z,zs){
-  const a=zATR||1;
+  const a=z.atr||zATR||1;
   if(z.type==='Buy'){const e=z.to,sl=z.from-.3*a,r=e-sl;const opp=zs.filter(o=>o.type==='Sell'&&o.from>e).map(o=>o.from).sort((x,y)=>x-y)[0];
     const tp=opp&&opp-e>=1.2*r?Math.min(opp,e+3*r):e+2*r;return{e,sl,tp,rr:(tp-e)/r}}
   const e=z.from,sl=z.to+.3*a,r=sl-e;const opp=zs.filter(o=>o.type==='Buy'&&o.to<e).map(o=>o.to).sort((x,y)=>y-x)[0];
   const tp=opp&&e-opp>=1.2*r?Math.max(opp,e-3*r):e-2*r;return{e,sl,tp,rr:(e-tp)/r}
+}
+
+/* ---------- zones from several timeframes ----------
+   Each zone keeps the timeframe it was found on. A zone that sits inside a higher-timeframe zone of the same side
+   gets +1 score per higher timeframe ("inside H1"). The best 2 on each side are kept for every timeframe. */
+const TF_LABEL={'1m':'M1','5m':'M5','15m':'M15','1h':'H1','4h':'H4','1d':'D1'},TF_RANK={'1m':1,'5m':2,'15m':3,'1h':4,'4h':5,'1d':6};
+function mtfCombine(byTf){
+  // keep the best 2 on each side per timeframe first, so "inside H1" always points at an H1 zone you can see
+  const all=[];
+  for(const tf in byTf)for(const dir of['Buy','Sell'])(byTf[tf]||[]).filter(z=>z.type===dir).sort((a,b)=>b.score-a.score).slice(0,2)
+    .forEach(z=>all.push({...z,tf,tfs:[TF_LABEL[tf]||tf],tags:[...(z.tags||[])]}));
+  all.forEach(z=>all.forEach(h=>{if(h!==z&&h.type===z.type&&TF_RANK[h.tf]>TF_RANK[z.tf]&&z.from<=h.to&&z.to>=h.from&&!z.tfs.includes(TF_LABEL[h.tf]))z.tfs.push(TF_LABEL[h.tf])}));
+  all.forEach(z=>{const up=z.tfs.slice(1);if(up.length){z.score+=up.length;z.tags.push('inside '+up.join('+'));z.grade=z.score>=6?'Strong':z.score>=4?'Good':'Weak'}});
+  return all;
 }
 const biasFresh=()=>lastBias&&Date.now()-lastBias.t<2*864e5;
 const aiFresh=()=>aiZones&&Date.now()-aiZones.t<3*864e5;
@@ -1373,14 +1395,36 @@ function allZones(){
   if(aiFresh())z.push(...aiZones.zones.map(x=>({...x,src:'ai'})));
   z.push(...userZones.map(x=>({...x,src:'you'})));return z;
 }
-const srcLabel=z=>z.src==='auto'?`${z.grade}: ${z.tags.join(' + ')}${z.fresh?', untested':''}`:z.src==='ai'?`AI, ${esc(aiZones.ev)}`:'Yours'+(z.note?`, ${esc(z.note)}`:'');
+const srcLabel=z=>z.src==='auto'?`${z.tfs?z.tfs[0]+' · ':''}${z.grade}: ${z.tags.join(' + ')}${z.fresh?', untested':''}`:z.src==='ai'?`AI, ${esc(aiZones.ev)}`:'Yours'+(z.note?`, ${esc(z.note)}`:'');
 const isDim=z=>biasFresh()&&z.type!==lastBias.dir;
-function refreshZones(){autoZ=chData.length?autoZones(chData):[];renderZoneEls();renderZoneList();renderBias();zaStatus();try{tgSyncSoon()}catch(e){}}
+let zoneTfs=store.get('zoneTfs',['5m','15m','1h']);const mtfCache={};let mtfBusy=false,mtfAgain=false;
+async function updateMTF(force){
+  if(mtfBusy){mtfAgain=true;return}mtfBusy=true;
+  try{const byTf={},now=Date.now();
+    for(const tf of zoneTfs){const c=mtfCache[tf],sec=TF_SEC[tf]||300;
+      if(tf===chTf&&chData.length&&chGen===srcGen){const zs=autoZones(chData);zs.forEach(z=>z.atr=zATR);mtfCache[tf]={gen:srcGen,next:0,zones:zs};byTf[tf]=zs;continue} // the chart's own live candles
+      if(!force&&c&&c.gen===srcGen&&now<c.next){byTf[tf]=c.zones;continue}
+      try{const j=await fetchKl(tf,300),bars=j.map(toBar),zs=autoZones(bars);zs.forEach(z=>z.atr=zATR);
+        mtfCache[tf]={gen:srcGen,next:j[j.length-1][0]+sec*1000+5000,zones:zs};byTf[tf]=zs}
+      catch(e){if(c)byTf[tf]=c.zones}}
+    autoZ=mtfCombine(byTf);
+  }finally{mtfBusy=false}
+  renderZoneEls();renderZoneList();renderBias();zaStatus();try{tgSyncSoon()}catch(e){}
+  if(mtfAgain){mtfAgain=false;updateMTF(false)}
+}
+function refreshZones(){updateMTF(false)}
+setInterval(()=>{if(!document.hidden&&(za.on||$('#v-chart').classList.contains('on')))updateMTF(false)},60e3);
+function syncZtf(){$$('[data-ztf]').forEach(b=>b.setAttribute('aria-pressed',zoneTfs.includes(b.dataset.ztf)))}
+$$('[data-ztf]').forEach(b=>b.onclick=()=>{const tf=b.dataset.ztf;
+  if(zoneTfs.includes(tf)){if(zoneTfs.length===1){toast('Keep at least one timeframe');return}zoneTfs=zoneTfs.filter(x=>x!==tf)}
+  else zoneTfs=[...zoneTfs,tf].sort((a,b)=>TF_RANK[a]-TF_RANK[b]);
+  store.set('zoneTfs',zoneTfs);syncZtf();updateMTF(true)});
+syncZtf();
 
 /* ---------- zone alerts: ring when the live price moves into a zone ---------- */
 let za=Object.assign({on:false,which:'good',sound:true},store.get('zoneAlerts',{}));
 const zaState=new Map(); // zone key -> {inside, last}
-const zKey=z=>z.src==='auto'?`auto|${z.type}|${z.t}`:z.src==='you'?`you|${z.id}`:`ai|${z.type}|${z.from.toFixed(2)}|${z.to.toFixed(2)}`;
+const zKey=z=>z.src==='auto'?`auto|${z.tf||''}|${z.type}|${z.t}`:z.src==='you'?`you|${z.id}`:`ai|${z.type}|${z.from.toFixed(2)}|${z.to.toFixed(2)}`;
 const zaZones=()=>allZones().filter(z=>za.which==='all'||z.src!=='auto'||z.grade!=='Weak');
 let actx=null;
 function beep(){
@@ -1392,16 +1436,20 @@ let zlAt=0;
 function checkZones(px){
   if(Date.now()-zlAt>2000&&$('#v-chart').classList.contains('on')){zlAt=Date.now();renderZoneList()} // keep 'above/below/inside' current
   if(!za.on||px==null)return;
-  const now=Date.now(),zs=zaZones(),all=allZones();
+  const now=Date.now(),zs=zaZones(),all=allZones(),got=[];
   zs.forEach(z=>{const k=zKey(z),inside=px>=z.from&&px<=z.to,st=zaState.get(k);
     if(!st){zaState.set(k,{inside,last:0});return} // first look: remember, don't ring for a zone we were already in
-    if(inside&&!st.inside&&now-st.last>10*6e4){
-      st.last=now;const pl=plan(z,all),against=biasFresh()&&lastBias.dir!==z.type;
-      const what=z.src==='auto'?`${z.grade.toLowerCase()}: ${z.tags.join('+')}`:z.src==='ai'?'AI zone':'your zone';
-      notify(`XAUUSD in ${z.type} zone`,`${fmtPx(px)} is inside ${z.type} ${fmtPx(z.from)}–${fmtPx(z.to)} (${what}). Entry ${fmtPx(pl.e)}, SL ${fmtPx(pl.sl)}, TP ${fmtPx(pl.tp)} (${pl.rr.toFixed(1)}R).${against?` Careful: against your ${lastBias.dir} bias.`:''}`,'zone-'+k);
-      if(za.sound)beep();
-    }
+    if(inside&&!st.inside&&now-st.last>10*6e4){st.last=now;got.push({z,k})}
     st.inside=inside});
+  // one alert per side, even when several timeframes' zones are entered together
+  for(const dir of['Buy','Sell']){const g=got.filter(x=>x.z.type===dir);if(!g.length)continue;
+    g.sort((a,b)=>(b.z.score||9)-(a.z.score||9));const z=g[0].z,pl=plan(z,all),against=biasFresh()&&lastBias.dir!==dir;
+    const lab=x=>x.src==='auto'?(x.tfs?x.tfs[0]:'auto'):x.src==='ai'?'AI':'yours',labs=[...new Set(g.map(x=>lab(x.z)))].join(' + ');
+    const what=z.src==='auto'?`${z.grade.toLowerCase()}: ${z.tags.join('+')}`:z.src==='ai'?'AI zone':'your zone';
+    const head=g.length>1?`XAUUSD in ${dir} zone: ${labs}`:`XAUUSD in ${z.src==='auto'&&z.tfs?z.tfs[0]+' ':''}${dir} zone`;
+    notify(head,`${fmtPx(px)} is inside ${dir} ${fmtPx(z.from)}–${fmtPx(z.to)} (${what}). Entry ${fmtPx(pl.e)}, SL ${fmtPx(pl.sl)}, TP ${fmtPx(pl.tp)} (${pl.rr.toFixed(1)}R).${against?` Careful: against your ${lastBias.dir} bias.`:''}`,'zone-'+g[0].k);
+    if(za.sound)beep();
+  }
   zaStatus();
 }
 function zaStatus(){
@@ -1423,7 +1471,7 @@ $('#za-sound').onchange=()=>{za.sound=$('#za-sound').checked;store.set('zoneAler
 function renderZoneEls(){
   const box=$('#ch-zones');if(!box)return;
   const zs=allZones();
-  box.innerHTML=zs.map(z=>`<div class="zb ${z.type} ${z.src}${isDim(z)?' dim':''}${z.grade==='Weak'?' weak':''}"><span class="lb">${z.type} ${fmtPx(z.from)}–${fmtPx(z.to)} <i>${z.src==='auto'?esc(z.tags.slice(0,3).join('+'))+', '+z.grade.toLowerCase():z.src==='ai'?'AI':'yours'}</i></span></div>`).join('');
+  box.innerHTML=zs.map(z=>`<div class="zb ${z.type} ${z.src}${isDim(z)?' dim':''}${z.grade==='Weak'?' weak':''}"><span class="lb">${z.src==='auto'&&z.tfs?`<b>${z.tfs[0]}</b>`:''}${z.type} ${fmtPx(z.from)}–${fmtPx(z.to)} <i>${z.src==='auto'?esc(z.tags.slice(0,3).join('+'))+', '+z.grade.toLowerCase():z.src==='ai'?'AI':'yours'}</i></span></div>`).join('');
   zoneEls=[...box.children].map((el,i)=>({el,z:zs[i]}));
 }
 function zoneLoop(){
@@ -1431,8 +1479,13 @@ function zoneLoop(){
   if(cs){const w=$('#ch-zones').clientWidth-(ch.priceScale('right').width()||0);
     zoneEls.forEach(({el,z})=>{const a=cs.priceToCoordinate(z.to),b=cs.priceToCoordinate(z.from);
       if(a==null||b==null){el.style.display='none';return}
-      let x0=0;if(z.src==='auto'&&z.i!=null){const c=ch.timeScale().logicalToCoordinate(z.i);x0=c==null?0:Math.max(0,Math.min(w-40,c))}
-      el.style.display='block';el.style.top=Math.min(a,b)+'px';el.style.height=Math.max(3,Math.abs(b-a))+'px';el.style.left=x0+'px';el.style.width=(w-x0)+'px';el.classList.toggle('lr',w-x0<280)})}
+      let x0=0;if(z.src==='auto'&&z.t!=null&&chData.length){let lo=0,hi=chData.length-1;while(lo<hi){const m=(lo+hi)>>1;if(chData[m].time<z.t)lo=m+1;else hi=m}
+        const c=ch.timeScale().logicalToCoordinate(lo);x0=c==null?0:Math.max(0,Math.min(w-40,c))}
+      el.style.display='block';el.style.top=Math.min(a,b)+'px';el.style.height=Math.max(3,Math.abs(b-a))+'px';el.style.left=x0+'px';el.style.width=(w-x0)+'px';el.classList.toggle('lr',w-x0<280);
+      el._ly=z.type==='Sell'?Math.min(a,b)-15:Math.max(a,b)}); // where its label sits
+    // labels that would overlap: keep the stronger zone's label, hide the rest (the list below still shows them)
+    const taken=[];zoneEls.filter(o=>o.el.style.display!=='none').sort((p,q)=>(q.z.score||9)-(p.z.score||9)).forEach(({el})=>{
+      const y=el._ly,hit=taken.some(t=>Math.abs(t-y)<15);el.classList.toggle('nolb',hit);if(!hit)taken.push(y)})}
   drawCountdown();
   chLoop=requestAnimationFrame(zoneLoop);
 }
@@ -1441,7 +1494,7 @@ function renderZoneList(){
   $('#zone-list').innerHTML=zs.length?zs.map(z=>{
     const dist=lastPx==null?'':z.from>lastPx?`${fmtPx(z.from-lastPx)} above`:z.to<lastPx?`${fmtPx(lastPx-z.to)} below`:'Price is inside';
     const pl=plan(z,all);
-    return`<li class="${isDim(z)?'dim':''}"><span class="zt ${z.type}">${z.type}</span><span class="zr num">${fmtPx(z.from)} – ${fmtPx(z.to)}<small>${srcLabel(z)}</small><small class="pl">Entry ${fmtPx(pl.e)}, SL ${fmtPx(pl.sl)}, TP ${fmtPx(pl.tp)} (${pl.rr.toFixed(1)}R)</small></span><span class="zd num">${dist}</span>${z.src==='you'?`<button class="icon" aria-label="Delete zone" data-zrm="${z.id}">✕</button>`:'<span></span>'}</li>`}).join('')
+    return`<li class="${isDim(z)?'dim':''}"><span class="zt ${z.type}">${z.type}${z.src==='auto'&&z.tfs?`<small class="ztf">${z.tfs[0]}</small>`:''}</span><span class="zr num">${fmtPx(z.from)} – ${fmtPx(z.to)}<small>${srcLabel(z)}</small><small class="pl">Entry ${fmtPx(pl.e)}, SL ${fmtPx(pl.sl)}, TP ${fmtPx(pl.tp)} (${pl.rr.toFixed(1)}R)</small></span><span class="zd num">${dist}</span>${z.src==='you'?`<button class="icon" aria-label="Delete zone" data-zrm="${z.id}">✕</button>`:'<span></span>'}</li>`}).join('')
     :'<li class="empty">No zones yet. Turn on auto zones, run an AI analysis with a price, or add your own below.</li>';
 }
 function renderBias(){
@@ -1607,7 +1660,7 @@ function tgPayload(){
   return{newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false,pip,lead,which:za.which,tf:chTf,adj,
     events:events.filter(e=>e.at>now-3*36e5&&e.at<now+60*864e5&&(e.type!=='Claims'||showClaims)).map(e=>{const h=head(e);return{key:e.key||e.id,type:e.type,name:e.name||NAMES[e.type]||e.type,at:e.at,fc:h.fc||'',pv:h.pv||'',bias:biasFor(e)}}),
     userZones,aiZones:aiFresh()?aiZones:null,
-    autoZ:autoZ.map(z=>({type:z.type,from:z.from,to:z.to,grade:z.grade,tags:z.tags,t:z.t})),autoAt:autoZ.length?now:0};
+    tfs:zoneTfs,autoZ:autoZ.map(z=>({type:z.type,from:z.from,to:z.to,grade:z.grade,tags:z.tags,t:z.t,tf:z.tf,tfs:z.tfs,atr:z.atr})),autoAt:autoZ.length?now:0};
 }
 async function tgSync(force){
   if(!tgReady()||tgBusy)return;
