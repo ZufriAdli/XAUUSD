@@ -1641,7 +1641,22 @@ $('#tg-link').onclick=async()=>{tgRead();if(!tgReady()){tgShow('Fill in the robo
   try{const j=await tgCall('/link');tgc.linked=true;tgSave();await tgSync(true);tgShow();toast(`Connected to Telegram (${j.name}). Check your Telegram.`)}
   catch(e){tgShow(e.message==='Failed to fetch'?"Couldn't reach the robot. Check the address.":e.message,true)}};
 $('#tg-test').onclick=async()=>{tgRead();if(!tgReady()){tgShow('Fill in the robot address and password first.',true);return}
-  try{await tgSync(true);const j=await tgCall('/test');toast(`Test sent${j.linked?' to Telegram':''}${j.linked&&j.phones?' and':''}${j.phones?` to ${j.phones} phone${j.phones>1?'s':''}`:''}.`)}catch(e){tgShow(e.message,true)}};
+  try{await tgSync(true);const j=await tgCall('/test');toast(`Test sent${j.linked?' to Telegram':''}${j.linked&&j.phones?' and':''}${j.phones?` to ${j.phones} phone${j.phones>1?'s':''}`:''}.`);
+    if(j.push&&j.push.length)pushShow(j.push.map(r=>`<b>${esc(r.name||'phone')}:</b> ${pushExplain(r)}`).join('<br>'),j.push.some(r=>!r.ok));
+    else if(tgc.push)pushShow("The robot has no phone on its list, so the test only went to Telegram. Tap Turn off, then Turn on again on this phone.",true);
+  }catch(e){tgShow(e.message,true)}};
+
+/* check this phone is still on the robot's list (e.g. after the worker was replaced) */
+async function pushCheck(){
+  if(!tgc.push||!tgReady()||!pushSupported())return;
+  try{
+    const reg=await swReady(),sub=await reg.pushManager.getSubscription();
+    if(!sub){pushShow("This phone is no longer subscribed (iPhone can drop it after the app is removed or updated). Tap Turn off, then Turn on again.",true);return}
+    const st=await tgCall('/status');
+    if(st.phones&&!st.phones.some(x=>x.id===tgc.devId))pushShow("The robot doesn't have this phone on its list (it may have been replaced). Tap Turn off, then Turn on again.",true);
+    else if(Notification.permission!=='granted')pushShow('Notifications are blocked for this app. On iPhone: Settings, Notifications, Gold Abyss, Allow Notifications.',true);
+  }catch(e){}
+}
 
 /* ---------- push notifications from the robot, straight to this app (works with the app closed) ---------- */
 const isIOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -1656,6 +1671,16 @@ function pushShow(msg,bad){const el=$('#push-status');el.style.color=bad?'var(--
   if(!pushSupported()){el.textContent="This browser can't receive notifications from the app. Telegram still works.";return}
   if(!isSecureContext){el.textContent='Notifications need the app opened from its https:// address.';return}
   el.textContent=tgc.push?(Notification.permission==='granted'?'On for this phone. Alerts arrive even when the app is closed.':'Notifications were blocked for this app. Allow them in the phone settings, then turn this off and on again.'):'Off for this phone.';
+}
+function pushExplain(r){
+  if(!r)return'';
+  if(r.ok)return`Apple accepted the notification (code ${r.status}). If nothing shows on the phone, check iPhone Settings, Notifications, Gold Abyss (Allow Notifications on, Banners on), and that Focus or Do Not Disturb is off.`;
+  if(r.status===404||r.status===410)return`The phone's notification address has expired (code ${r.status}). Tap Turn off, then Turn on again.`;
+  if(r.status===403)return`Apple refused the robot's signature (code 403${r.reason?': '+esc(r.reason):''}). Paste the latest worker.js into Cloudflare, Deploy, then tap Turn off and Turn on again.`;
+  if(r.status===400||r.status===413)return`Apple rejected the message (code ${r.status}${r.reason?': '+esc(r.reason):''}). Paste the latest worker.js into Cloudflare and try again.`;
+  if(r.status===429)return'Apple is limiting messages right now (code 429). Wait a few minutes and try again.';
+  if(!r.status)return`The robot couldn't reach Apple's notification service (${esc(r.reason||'network error')}).`;
+  return`Apple answered with code ${r.status}${r.reason?': '+esc(r.reason):''}.`;
 }
 async function swReady(){return Promise.race([navigator.serviceWorker.ready,new Promise((_,no)=>setTimeout(()=>no(new Error('the app\'s background worker is not running yet; close the app, open it again and retry')),8000))])}
 $('#push-btn').onclick=async()=>{
@@ -1679,12 +1704,14 @@ $('#push-btn').onclick=async()=>{
     let sub=await reg.pushManager.getSubscription();
     if(sub&&tgc.pushKey&&tgc.pushKey!==key){await sub.unsubscribe();sub=null} // robot was replaced: subscribe again
     if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:ub64k(key)});
-    await tgCall('/subscribe',{sub:sub.toJSON(),id:tgc.devId,name:isIOS?'iPhone':'phone'});
-    tgc.push=true;tgc.pushKey=key;tgSave();await tgSync(true);pushShow();toast('Notifications on. You should get a confirmation now.');
+    const j=await tgCall('/subscribe',{sub:sub.toJSON(),id:tgc.devId,name:isIOS?'iPhone':'phone'});
+    tgc.push=true;tgc.pushKey=key;tgSave();await tgSync(true);pushShow();
+    if(j.push&&!j.push.ok)pushShow('Turned on, but the confirmation did not go through. '+pushExplain(j.push),true);
+    else toast('Notifications on. You should get a confirmation now.');
   }catch(e){pushShow("Couldn't turn on notifications: "+esc(e.message==='Failed to fetch'?"couldn't reach the robot, check the address":e.message),true)}
 };
 pushShow();
-setTimeout(()=>{pullResults();ffLoad(false)},1500);
+setTimeout(()=>{pullResults();ffLoad(false);pushCheck()},1500);
 tgFill();
 setInterval(()=>tgSync(false),5*6e4); // background refresh of zones and events
 
