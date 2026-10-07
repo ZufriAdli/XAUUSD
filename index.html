@@ -1664,10 +1664,11 @@ function tgPayload(){
 }
 async function tgSync(force){
   if(!tgReady()||tgBusy)return;
-  const p=tgPayload(),h=JSON.stringify({...p,autoAt:0});
+  const p=tgPayload(),h=JSON.stringify({...p,autoZ:0,autoAt:0}); // zone changes alone don't trigger a sync (each sync is one of the robot's 1000 daily KV writes)
+  if(Date.now()-(tgc.autoSent||0)>2*36e5)force=true; // refresh the robot's backup copy of the zones every 2 hours
   if(!force&&h===tgLastHash)return; // nothing changed, don't use up the robot's daily writes
   tgBusy=true;
-  try{const j=await tgCall('/sync',p);tgLastHash=h;tgc.lastSync=Date.now();tgSave();tgShow();applyResults(j.results)}
+  try{const j=await tgCall('/sync',p);tgLastHash=h;tgc.lastSync=Date.now();tgc.autoSent=Date.now();tgSave();tgShow();applyResults(j.results)}
   catch(e){tgShow("Couldn't reach the robot: "+e.message,true)}finally{tgBusy=false}
 }
 // changes are batched; at most one sync a minute unless forced
@@ -1864,7 +1865,7 @@ $('#s-restore').onclick=()=>{deleted.clear();store.set('deleted',[]);const n=syn
 /* settings: backup and restore (API key is never included) */
 $('#s-export').onclick=()=>{
   const data={app:'gold-abyss-x79',version:2,exported:new Date().toISOString(),events,history,deleted:[...deleted],
-    zones:userZones,settings:{theme:store.get('theme','onyx'),gmodel:store.get('gmodel',''),lead,showClaims,hidePast,pxOffset}};
+    zones:userZones,settings:{theme:store.get('theme','onyx'),gmodel:store.get('gmodel',''),lead,showClaims,hidePast,pxOffset,pip,spread,zoneTfs,zoneAlerts:za,chTf,chMode,tvSym}};
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,1)],{type:'application/json'}));
   a.download=`gold-abyss-backup-${new Date(Date.now()+8*36e5).toISOString().slice(0,10)}.json`;document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);
   toast('Backup downloaded');
@@ -1884,6 +1885,13 @@ $('#s-file').onchange=async()=>{
     if(typeof st.showClaims==='boolean'){showClaims=st.showClaims;store.set('showClaims',showClaims)}
     if(typeof st.hidePast==='boolean'){hidePast=st.hidePast;store.set('hidePast',hidePast)}
     if(st.gmodel)store.set('gmodel',st.gmodel);
+    if(+st.pip>0){pip=+st.pip;store.set('pip',pip);$('#s-pip').value=String(pip)}
+    if(st.spread!==undefined&&+st.spread>=0){spread=+st.spread;store.set('spread',spread)}
+    if(Array.isArray(st.zoneTfs)&&st.zoneTfs.length){zoneTfs=st.zoneTfs.filter(t=>TF_SEC[t]);store.set('zoneTfs',zoneTfs);syncZtf()}
+    if(st.zoneAlerts){za=Object.assign(za,st.zoneAlerts);store.set('zoneAlerts',za);zaSync()}
+    if(st.chTf&&TF_SEC[st.chTf]){chTf=st.chTf;store.set('chTf2',chTf)}
+    if(st.chMode==='tv'||st.chMode==='zones'){chMode=st.chMode;store.set('chMode',chMode)}
+    if(st.tvSym){tvSym=st.tvSym;store.set('tvSym',tvSym)}
     if(Array.isArray(d.zones)){userZones=d.zones.filter(z=>z&&z.id&&z.from<z.to);store.set('zones',userZones)}
     if(st.pxOffset!==undefined){pxOffset=st.pxOffset;store.set('pxOffset',pxOffset)}
     syncEvents();saveEv();store.set('history',history);store.set('deleted',[...deleted]);
