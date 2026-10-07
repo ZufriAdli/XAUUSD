@@ -1,6 +1,6 @@
 /* Gold Abyss X79 service worker.
    Bump VERSION whenever you upload a new index.html so phones pick up the update. */
-const VERSION = 'gax79-v22';
+const VERSION = 'gax79-v23';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -39,6 +39,16 @@ self.addEventListener('fetch', e => {
       return res;
     }))
   );
+});
+
+// News and zone alerts pushed by the Cloudflare robot (arrive even when the app is closed).
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (_) { d = { body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Gold Abyss X79', {
+    body: d.body || '', tag: d.tag || 'gax', renotify: true,
+    icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', data: { url: './' }
+  }));
 });
 
 // Tapping an alert opens (or focuses) the app.

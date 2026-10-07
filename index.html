@@ -318,6 +318,7 @@ footer{border-top:1px solid var(--line);padding:28px 0;color:var(--muted);font-s
 .sw input{width:auto;accent-color:var(--gold-fill)}
 .za{display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px;padding:14px 16px;margin:0 0 10px;border:1px solid var(--hair);border-radius:14px;background:var(--soft)}
 .za .za-main{color:var(--ink);font-size:15px}
+.sub-h{font-family:var(--sans);font-size:15px;font-weight:700;margin:22px 0 10px}
 .za select{width:auto;flex:0 1 320px}
 #za-status b.Buy{color:var(--buy)}#za-status b.Sell{color:var(--sell)}
 nav button svg{vertical-align:-3px}
@@ -555,8 +556,8 @@ nav button svg{vertical-align:-3px}
     </div>
 
     <div class="step">
-      <h3>Telegram alerts, even with your phone off</h3>
-      <p class="set-note">A small free robot on Cloudflare checks the price every minute and messages you on Telegram before each news release and when price enters a Buy or Sell zone. Set it up once (steps in the guide), then paste its address and password here.</p>
+      <h3>Alerts when the app is closed</h3>
+      <p class="set-note">A small free robot on Cloudflare checks the price every minute and alerts you before each news release and when price enters a Buy or Sell zone, on Telegram and as notifications from this app, even with the app closed. Set it up once (steps in the guide), then paste its address and password here.</p>
       <div class="form">
         <label class="full">Robot address <small>your worker URL, e.g. https://gold-alerts.yourname.workers.dev</small><input id="tg-url" inputmode="url" autocomplete="off" placeholder="https://….workers.dev"></label>
         <label class="full">Robot password <small>the APP_SECRET you set in the worker</small><input id="tg-secret" type="password" autocomplete="off"></label>
@@ -566,15 +567,21 @@ nav button svg{vertical-align:-3px}
         <label class="sw za-main"><input type="checkbox" id="tg-zones"> Zone alerts</label>
         <span class="muted" style="font-size:13px">Zone alerts use the timeframe and zone choice on the Chart page.</span>
       </div>
-      <div class="cta" style="margin-top:14px">
-        <button class="btn small" id="tg-link">Connect</button>
-        <button class="btn small ghost" id="tg-test">Send test</button>
+      <h4 class="sub-h">Telegram</h4>
+      <div class="cta">
+        <button class="btn small" id="tg-link">Connect Telegram</button>
       </div>
-      <p class="set-note" id="tg-status" style="margin-top:14px"></p>
+      <p class="set-note" id="tg-status" style="margin-top:12px"></p>
+      <h4 class="sub-h">Notifications from this app</h4>
+      <div class="cta">
+        <button class="btn small" id="push-btn">Turn on on this phone</button>
+      </div>
+      <p class="set-note" id="push-status" style="margin-top:12px"></p>
+      <div class="cta" style="margin-top:18px"><button class="btn small ghost" id="tg-test">Send test to both</button></div>
     </div>
 
     <div class="step">
-      <h3>Alerts on your phone, even when the app is closed</h3>
+      <h3>Add releases to your phone calendar</h3>
       <p class="set-note">Add the upcoming releases to your phone's calendar. Each one rings at the time you chose above and again 1 minute before, even with the app closed and the phone locked.</p>
       <div class="form" style="margin-bottom:16px">
         <label>Which releases
@@ -1530,7 +1537,7 @@ const tgReady=()=>/^https:\/\//.test(tgc.url)&&tgc.secret.length>=4;
 function tgSave(){store.set('tg',tgc)}
 function tgShow(msg,bad){const el=$('#tg-status');if(!el)return;
   el.style.color=bad?'var(--sell)':'';
-  el.textContent=msg||(!tgReady()?'Not set up yet.':tgc.linked?`Connected. ${tgc.news?'News':''}${tgc.news&&tgc.zones?' and ':''}${tgc.zones?'zone':''}${tgc.news||tgc.zones?' alerts are on.':'All Telegram alerts are off.'}${tgc.lastSync?` Last sync ${new Date(tgc.lastSync).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}.`:''}`:'Saved. Press Connect after you press Start on your bot in Telegram.')}
+  el.textContent=msg||(!tgReady()?'Not set up yet.':tgc.linked?`Telegram connected. ${tgc.news?'News':''}${tgc.news&&tgc.zones?' and ':''}${tgc.zones?'zone':''}${tgc.news||tgc.zones?' alerts are on.':'All Telegram alerts are off.'}${tgc.lastSync?` Last sync ${new Date(tgc.lastSync).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}.`:''}`:'Saved. Press Connect after you press Start on your bot in Telegram.')}
 async function tgCall(path,body){
   const r=await fetch(tgc.url.replace(/\/+$/,'')+path,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+tgc.secret},body:JSON.stringify(body||{})});
   let j={};try{j=await r.json()}catch(e){}
@@ -1556,14 +1563,56 @@ async function tgSync(force){
 function tgSyncSoon(ms=4000){if(!tgReady())return;clearTimeout(tgTimer);const wait=Math.max(ms,6e4-(Date.now()-tgc.lastSync));tgTimer=setTimeout(()=>tgSync(false),Math.min(wait,6e4))}
 function tgFill(){$('#tg-url').value=tgc.url;$('#tg-secret').value=tgc.secret;$('#tg-news').checked=tgc.news;$('#tg-zones').checked=tgc.zones;tgShow()}
 const tgRead=()=>{tgc.url=$('#tg-url').value.trim();tgc.secret=$('#tg-secret').value.trim();tgSave()};
-$('#tg-url').onchange=$('#tg-secret').onchange=()=>{tgRead();tgc.linked=false;tgSave();tgShow()};
+$('#tg-url').onchange=$('#tg-secret').onchange=()=>{tgRead();tgc.linked=false;tgSave();tgShow();pushShow()};
 $('#tg-news').onchange=$('#tg-zones').onchange=()=>{tgc.news=$('#tg-news').checked;tgc.zones=$('#tg-zones').checked;tgSave();tgSync(true)};
 $('#tg-link').onclick=async()=>{tgRead();if(!tgReady()){tgShow('Fill in the robot address (starting with https://) and password first.',true);return}
   tgShow('Connecting…');
   try{const j=await tgCall('/link');tgc.linked=true;tgSave();await tgSync(true);tgShow();toast(`Connected to Telegram (${j.name}). Check your Telegram.`)}
   catch(e){tgShow(e.message==='Failed to fetch'?"Couldn't reach the robot. Check the address.":e.message,true)}};
 $('#tg-test').onclick=async()=>{tgRead();if(!tgReady()){tgShow('Fill in the robot address and password first.',true);return}
-  try{await tgSync(true);await tgCall('/test');toast('Test sent. Check your Telegram.')}catch(e){tgShow(e.message,true)}};
+  try{await tgSync(true);const j=await tgCall('/test');toast(`Test sent${j.linked?' to Telegram':''}${j.linked&&j.phones?' and':''}${j.phones?` to ${j.phones} phone${j.phones>1?'s':''}`:''}.`)}catch(e){tgShow(e.message,true)}};
+
+/* ---------- push notifications from the robot, straight to this app (works with the app closed) ---------- */
+const isIOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const isStandalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+const pushSupported=()=>'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
+const ub64k=s=>{s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u};
+if(!tgc.devId){tgc.devId=Math.random().toString(36).slice(2,12);tgSave()}
+function pushShow(msg,bad){const el=$('#push-status');el.style.color=bad?'var(--sell)':'';
+  if(msg){el.innerHTML=msg;return}
+  const btn=$('#push-btn');btn.textContent=tgc.push?'Turn off on this phone':'Turn on on this phone';btn.classList.toggle('ghost',!!tgc.push);
+  if(isIOS&&!isStandalone()){el.innerHTML='<b>On iPhone, add the app to your Home Screen first:</b> tap the Share button in Safari, choose <b>Add to Home Screen</b>, then open Gold Abyss from the new icon and turn this on there. iPhone only allows notifications for apps on the Home Screen (iOS 16.4 or later).';return}
+  if(!pushSupported()){el.textContent="This browser can't receive notifications from the app. Telegram still works.";return}
+  if(!isSecureContext){el.textContent='Notifications need the app opened from its https:// address.';return}
+  el.textContent=tgc.push?(Notification.permission==='granted'?'On for this phone. Alerts arrive even when the app is closed.':'Notifications were blocked for this app. Allow them in the phone settings, then turn this off and on again.'):'Off for this phone.';
+}
+async function swReady(){return Promise.race([navigator.serviceWorker.ready,new Promise((_,no)=>setTimeout(()=>no(new Error('the app\'s background worker is not running yet; close the app, open it again and retry')),8000))])}
+$('#push-btn').onclick=async()=>{
+  tgRead();
+  if(tgc.push){ // turn off
+    try{const reg=await swReady(),sub=await reg.pushManager.getSubscription();
+      if(tgReady())await tgCall('/unsubscribe',{endpoint:sub&&sub.endpoint,id:tgc.devId}).catch(()=>{});
+      if(sub)await sub.unsubscribe()}catch(e){}
+    tgc.push=false;tgSave();pushShow();toast('Notifications off for this phone');return}
+  if(isIOS&&!isStandalone()){pushShow();return}
+  if(!pushSupported()||!isSecureContext){pushShow();return}
+  if(!tgReady()){pushShow('Fill in the robot address and password above first.',true);return}
+  // ask straight away: iPhone only shows the permission prompt in direct response to a tap
+  let perm=Notification.permission;
+  if(perm==='default'){try{perm=await Notification.requestPermission()}catch(e){}}
+  updNotifBtn();
+  if(perm!=='granted'){pushShow(perm==='denied'?'Notifications are blocked for this app. On iPhone: Settings, Notifications, Gold Abyss, Allow Notifications. Then try again.':'You need to tap Allow to get notifications.',true);return}
+  pushShow('Turning on…');
+  try{
+    const reg=await swReady(),{key}=await tgCall('/vapid');
+    let sub=await reg.pushManager.getSubscription();
+    if(sub&&tgc.pushKey&&tgc.pushKey!==key){await sub.unsubscribe();sub=null} // robot was replaced: subscribe again
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:ub64k(key)});
+    await tgCall('/subscribe',{sub:sub.toJSON(),id:tgc.devId,name:isIOS?'iPhone':'phone'});
+    tgc.push=true;tgc.pushKey=key;tgSave();await tgSync(true);pushShow();toast('Notifications on. You should get a confirmation now.');
+  }catch(e){pushShow("Couldn't turn on notifications: "+esc(e.message==='Failed to fetch'?"couldn't reach the robot, check the address":e.message),true)}
+};
+pushShow();
 tgFill();
 setInterval(()=>tgSync(false),5*6e4); // background refresh of zones and events
 
@@ -1636,7 +1685,7 @@ $('#tv-box').innerHTML=tickerHTML();startFeed();zaSync();zaEnsureData();
 // refresh the calendar once a day while the app stays open
 setInterval(()=>{if(syncEvents()){saveEv();renderCalKeep()}},6*36e5);
 if(store.get('gkey','')&&Date.now()-store.get('gmodelsAt',0)>7*864e5)refreshModels(true);
-if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('sw.js').then(r=>{swReg=r}).catch(()=>{})}
+if('serviceWorker' in navigator&&isSecureContext&&location.protocol!=='file:'){navigator.serviceWorker.register('sw.js').then(r=>{swReg=r}).catch(()=>{})}
 })();
 </script>
 </body>
