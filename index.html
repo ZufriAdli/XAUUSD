@@ -331,6 +331,7 @@ nav button svg{vertical-align:-3px}
 .comps select{grid-column:span 3}
 @media (max-width:520px){.comps select{grid-column:1/-1}}
 .tag.PCE{color:var(--gold)}
+b.up{color:var(--buy)}b.down{color:var(--sell)}
 .cal .empty-row td{color:var(--muted);padding:28px 4px}
 </style>
 <script>try{document.documentElement.dataset.theme=JSON.parse(localStorage.getItem('re:theme'))||'onyx'}catch(e){document.documentElement.dataset.theme='onyx'}</script>
@@ -400,6 +401,7 @@ nav button svg{vertical-align:-3px}
       <button class="btn small" id="add-ev">Add event</button>
     </div>
     <p class="note">FOMC dates and minutes follow the official Fed schedule. Dates marked estimate follow each release's usual pattern and are added automatically about a year ahead, so check the BLS, BEA or ISM sites and edit any that differ. Times are in Malaysia time (MYT). Alerts only fire while this app is open.</p>
+    <p class="note" id="ff-status" style="margin-top:-18px"></p>
     <div class="cal">
       <table>
         <tbody id="cal-body"></tbody>
@@ -551,6 +553,9 @@ nav button svg{vertical-align:-3px}
         <label>Remind me before each release
           <select id="s-lead"><option value="5">5 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option></select>
         </label>
+        <label>How your broker counts gold pips
+          <select id="s-pip"><option value="0.1">1 pip = $0.10 (most brokers: $1 = 10 pips)</option><option value="0.01">1 pip = $0.01 ($1 = 100 pips)</option><option value="1">1 pip = $1.00</option></select>
+        </label>
       </div>
       <p class="set-note">Alerts are checked by this page, so they only fire while the app is open. A background tab is fine, but if you close the app or your phone puts it to sleep, the alert is missed.</p>
     </div>
@@ -565,7 +570,8 @@ nav button svg{vertical-align:-3px}
       <div class="za" style="margin-top:16px">
         <label class="sw za-main"><input type="checkbox" id="tg-news"> News alerts</label>
         <label class="sw za-main"><input type="checkbox" id="tg-zones"> Zone alerts</label>
-        <span class="muted" style="font-size:13px">Zone alerts use the timeframe and zone choice on the Chart page.</span>
+        <label class="sw za-main"><input type="checkbox" id="tg-rep"> After-news report</label>
+        <span class="muted" style="font-size:13px">Zone alerts use the timeframe and zone choice on the Chart page. The after-news report comes 15 minutes after each release: how many pips gold moved and whether your bias was right (your accuracy updates by itself).</span>
       </div>
       <h4 class="sub-h">Telegram</h4>
       <div class="cta">
@@ -804,7 +810,10 @@ const shown=e=>showClaims||e.type!=='Claims';
 function syncToggles(){$('#tg-claims').setAttribute('aria-pressed',showClaims);$('#tg-past').setAttribute('aria-pressed',hidePast)}
 $('#tg-claims').onclick=()=>{showClaims=!showClaims;store.set('showClaims',showClaims);syncToggles();renderCalKeep();tick()};
 $('#tg-past').onclick=()=>{hidePast=!hidePast;store.set('hidePast',hidePast);syncToggles();renderCalKeep()};
-function fpCell(e){if(!compsOf(e.type).length)return e.tone?`Tone <b>${esc(e.tone)}</b>`:'—';const h=head(e);return`${esc(h.fc||'—')} / ${esc(h.pv||'—')}${h.ac?` <b>→ ${esc(h.ac)}</b>`:''}`}
+let pip=+store.get('pip',0.1)||0.1;
+const pipsOf=d=>Math.round(Math.abs(d)/pip);
+const moveTxt=e=>e.move?` · gold <b class="${e.move.d15>=0?'up':'down'}">${e.move.d15>=0?'▲':'▼'} ${pipsOf(e.move.d15)} pips</b> in 15 min`:'';
+function fpCell(e){if(!compsOf(e.type).length)return(e.tone?`Tone <b>${esc(e.tone)}</b>`:'—')+moveTxt(e);const h=head(e);return`${esc(h.fc||'—')} / ${esc(h.pv||'—')}${h.ac?` <b>→ ${esc(h.ac)}</b>`:''}${moveTxt(e)}`}
 function renderCal(){
   const now=Date.now();let lastWk=null,out='';
   const list=events.filter(e=>shown(e)&&(!hidePast||e.at>=now-36e5));
@@ -830,7 +839,7 @@ function renderWeek(){
   $('#week-list').innerHTML=list.length?list.map(e=>`<li data-an="${e.id}" tabindex="0" class="${e.at<now?'muted':''}">
     <span class="d num"><b>${fmtDay.format(e.at)}</b><small>${fmtTime.format(e.at)} MYT</small></span>
     <span class="e"><span class="tag ${e.type.split(' ')[0]}">${esc(e.type)}</span><span class="nm">${esc(e.name)}</span></span>
-    <span class="f num">${!compsOf(e.type).length?(e.tone?`Tone <b>${esc(e.tone)}</b>`:'Read the tone when it is out'):(h=>h.ac?`Actual <b>${esc(h.ac)}</b>, forecast ${esc(h.fc||'—')}`:h.fc||h.pv?`Forecast <b>${esc(h.fc||'—')}</b>, previous ${esc(h.pv||'—')}`:'No forecast yet')(head(e))}</span>
+    <span class="f num">${!compsOf(e.type).length?(e.tone?`Tone <b>${esc(e.tone)}</b>`:'Read the tone when it is out'):(h=>h.ac?`Actual <b>${esc(h.ac)}</b>, forecast ${esc(h.fc||'—')}`:h.fc||h.pv?`Forecast <b>${esc(h.fc||'—')}</b>, previous ${esc(h.pv||'—')}`:'No forecast yet')(head(e))}${moveTxt(e)}</span>
     <span class="go link" aria-hidden="true">Analyse</span></li>`).join(''):'<li class="empty">Nothing scheduled in the next 7 days. Add events in the calendar.</li>';
 }
 $('#week-list').addEventListener('click',e=>{const li=e.target.closest('[data-an]');if(li)openAnalysis(li.dataset.an)});
@@ -951,8 +960,8 @@ function showResult(r,ev){
    ${r.zones&&r.zones.length?`<p class="levels"><b>Zones:</b> ${r.zones.map(z=>`${z.type} ${fmtPx(z.from)}–${fmtPx(z.to)}`).join(', ')}</p>`:''}
    <div class="cta" style="margin-top:22px"><button class="btn small" id="save-an">Save to history</button><button class="btn small ghost" data-go="chart">${r.zones&&r.zones.length?'See zones on chart':'Open chart'}</button></div>
    <p class="fine">Not financial advice.</p></div>`;el.scrollIntoView({behavior:'smooth',block:'start'});
-  lastBias={dir:r.dir,conf:r.conf,type:ev.type,src:r.src,t:Date.now()};store.set('lastBias',lastBias);if(typeof refreshZones==='function')refreshZones();
-  $('#save-an').onclick=()=>{history.unshift({id:uid(),t:Date.now(),evId:ev.id,type:ev.type,evAt:ev.at,dir:r.dir,conf:r.conf,src:r.src,summary:r.summary,outcome:null});store.set('history',history);renderHist();renderRecord();toast('Saved to history');$('#save-an').disabled=true};
+  lastBias={dir:r.dir,conf:r.conf,type:ev.type,evId:ev.id,src:r.src,t:Date.now()};store.set('lastBias',lastBias);if(typeof refreshZones==='function')refreshZones();
+  $('#save-an').onclick=()=>{history.unshift({id:uid(),t:Date.now(),evId:ev.id,type:ev.type,evAt:ev.at,dir:r.dir,conf:r.conf,src:r.src,summary:r.summary,outcome:null});gradeHistory();try{tgSyncSoon()}catch(e){}store.set('history',history);renderHist();renderRecord();toast('Saved to history');$('#save-an').disabled=true};
 }
 function curForm(){
   const ev=events.find(e=>e.id===$('#f-ev').value);let rows=[];
@@ -1546,8 +1555,10 @@ async function tgCall(path,body){
 function tgPayload(){
   const now=Date.now();
   const adj=offMode()==='broker'&&spotOff&&spotOff.src===SOURCES[srcIdx].name?Math.round((pxOffset.val-spotOff.val)*100)/100:0;
-  return{newsOn:tgc.news,zonesOn:tgc.zones,lead,which:za.which,tf:chTf,adj,
-    events:events.filter(e=>e.at>now-6e4&&e.at<now+60*864e5&&(e.type!=='Claims'||showClaims)).map(e=>{const h=head(e);return{key:e.key||e.id,type:e.type,name:e.name||NAMES[e.type]||e.type,at:e.at,fc:h.fc||'',pv:h.pv||''}}),
+  const biasFor=e=>{const h=history.find(h=>h.evId===e.id&&(h.dir==='Buy'||h.dir==='Sell'));if(h)return{dir:h.dir};
+    return lastBias&&lastBias.evId===e.id&&(lastBias.dir==='Buy'||lastBias.dir==='Sell')?{dir:lastBias.dir}:null};
+  return{newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false,pip,lead,which:za.which,tf:chTf,adj,
+    events:events.filter(e=>e.at>now-3*36e5&&e.at<now+60*864e5&&(e.type!=='Claims'||showClaims)).map(e=>{const h=head(e);return{key:e.key||e.id,type:e.type,name:e.name||NAMES[e.type]||e.type,at:e.at,fc:h.fc||'',pv:h.pv||'',bias:biasFor(e)}}),
     userZones,aiZones:aiFresh()?aiZones:null,
     autoZ:autoZ.map(z=>({type:z.type,from:z.from,to:z.to,grade:z.grade,tags:z.tags,t:z.t})),autoAt:autoZ.length?now:0};
 }
@@ -1556,15 +1567,75 @@ async function tgSync(force){
   const p=tgPayload(),h=JSON.stringify({...p,autoAt:0});
   if(!force&&h===tgLastHash)return; // nothing changed, don't use up the robot's daily writes
   tgBusy=true;
-  try{await tgCall('/sync',p);tgLastHash=h;tgc.lastSync=Date.now();tgSave();tgShow()}
+  try{const j=await tgCall('/sync',p);tgLastHash=h;tgc.lastSync=Date.now();tgSave();tgShow();applyResults(j.results)}
   catch(e){tgShow("Couldn't reach the robot: "+e.message,true)}finally{tgBusy=false}
 }
 // changes are batched; at most one sync a minute unless forced
 function tgSyncSoon(ms=4000){if(!tgReady())return;clearTimeout(tgTimer);const wait=Math.max(ms,6e4-(Date.now()-tgc.lastSync));tgTimer=setTimeout(()=>tgSync(false),Math.min(wait,6e4))}
-function tgFill(){$('#tg-url').value=tgc.url;$('#tg-secret').value=tgc.secret;$('#tg-news').checked=tgc.news;$('#tg-zones').checked=tgc.zones;tgShow()}
+function tgFill(){$('#tg-url').value=tgc.url;$('#tg-secret').value=tgc.secret;$('#tg-news').checked=tgc.news;$('#tg-zones').checked=tgc.zones;$('#tg-rep').checked=tgc.rep!==false;tgShow()}
 const tgRead=()=>{tgc.url=$('#tg-url').value.trim();tgc.secret=$('#tg-secret').value.trim();tgSave()};
 $('#tg-url').onchange=$('#tg-secret').onchange=()=>{tgRead();tgc.linked=false;tgSave();tgShow();pushShow()};
-$('#tg-news').onchange=$('#tg-zones').onchange=()=>{tgc.news=$('#tg-news').checked;tgc.zones=$('#tg-zones').checked;tgSave();tgSync(true)};
+$('#tg-news').onchange=$('#tg-zones').onchange=$('#tg-rep').onchange=()=>{tgc.news=$('#tg-news').checked;tgc.zones=$('#tg-zones').checked;tgc.rep=$('#tg-rep').checked;tgSave();tgSync(true)};
+
+/* ---------- after-news results from the robot: show the move, grade saved analyses ---------- */
+function gradeHistory(){
+  let ch=false;
+  history.forEach(h=>{if(h.outcome!==null||(h.dir!=='Buy'&&h.dir!=='Sell'))return;
+    const ev=events.find(e=>e.id===h.evId);if(!ev||!ev.move||Math.abs(ev.move.d15)<5*pip)return;
+    h.outcome=(h.dir==='Buy')===(ev.move.d15>0);h.auto=true;ch=true});
+  if(ch){store.set('history',history);renderHist();renderRecord()}
+}
+function applyResults(res){
+  if(!res)return;let ch=false;
+  for(const k in res){const r=res[k],ev=events.find(e=>(e.key||e.id)===k);if(!ev||ev.move&&ev.move.at===r.at)continue;
+    ev.move={d5:r.p5-r.p0,d15:r.p15-r.p0,range:r.range,at:r.at};ch=true}
+  if(ch){events.sort((a,b)=>a.at-b.at);store.set('events',events);renderCalKeep()}
+  gradeHistory();
+}
+async function pullResults(){if(!tgReady())return;try{applyResults((await tgCall('/results')).results)}catch(e){}}
+setInterval(pullResults,10*6e4);
+
+/* ---------- forecast and previous from the ForexFactory calendar (fills itself) ---------- */
+const FF_EXTRA=[[/^FOMC Meeting Minutes$/i,'FOMC Minutes'],[/^(FOMC Statement|Federal Funds Rate)$/i,'FOMC'],[/^Fed Chair .*Speaks$/i,'Fed Speech']];
+function ffApply(items){
+  let filled=0,fixed=0,added=0,touched=new Set();
+  items.forEach(x=>{
+    const at=Date.parse(x.date);if(!at||!x.title)return;
+    let type=null,comp=null;
+    for(const t of TYPES){const c=compsOf(t).find(c=>c.re&&c.re.test(x.title.trim()));if(c){type=t;comp=c;break}}
+    if(!type){const m=FF_EXTRA.find(([re])=>re.test(x.title.trim()));if(m)type=m[1]}
+    if(!type||type==='Fed Speech'&&x.impact!=='High')return;
+    const day=etDay(at);
+    let ev=events.find(e=>e.type===type&&etDay(e.at)===day);
+    if(!ev&&type!=='Claims'){ // our estimate is on the wrong day: move it to the real date
+      ev=events.find(e=>e.type===type&&e.est&&!e.edited&&!touched.has(e.id)&&Math.abs(e.at-at)<3*864e5);
+      if(ev){deleted.add(ev.key);ev.at=at;ev.key=keyOf(type,at);fixed++}}
+    if(!ev){const key=keyOf(type,at);if(deleted.has(key)||at<Date.now()-864e5)return;
+      ev={id:uid(),type,name:NAMES[type]||x.title,at,key,est:false,remind:false,fc:'',pv:''};events.push(ev);added++}
+    if(ev.est&&!ev.edited){if(ev.at!==at){ev.at=at;fixed++}ev.est=false}
+    touched.add(ev.id);
+    if(!comp)return;
+    const v=vals(ev),cur=v[comp.k]||{},af=ev.af||(ev.af={}),prev=af[comp.k]||{};
+    [['fc','forecast'],['pv','previous']].forEach(([f,src])=>{const val=(x[src]||'').trim();
+      if(val&&(!cur[f]||cur[f]===prev[f])&&cur[f]!==val){cur[f]=val;filled++}});
+    af[comp.k]={fc:x.forecast||'',pv:x.previous||''};v[comp.k]=cur;setHead(ev);
+  });
+  if(filled||fixed||added){store.set('deleted',[...deleted]);saveEv();renderCalKeep();
+    const a=document.activeElement;if($('#v-an').classList.contains('on')&&!(a&&a.closest&&a.closest('#f-comps')))fillFromEv()}
+  return{filled,fixed,added};
+}
+async function ffLoad(force){
+  const el=$('#ff-status');
+  if(!force&&Date.now()-store.get('ffAt',0)<2*36e5){const t=store.get('ffAt',0);if(t)el.textContent=`Forecasts and previous figures fill in by themselves from the ForexFactory calendar. Last checked ${new Date(t).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}.`;return}
+  let items=null;
+  if(tgReady()){try{items=(await tgCall('/calendar')).items}catch(e){}}
+  if(!items){try{const r=await fetch('https://nfs.faireconomy.media/ff_calendar_thisweek.json',{signal:AbortSignal.timeout?AbortSignal.timeout(6000):undefined});
+    if(r.ok)items=(await r.json()).filter(x=>x&&x.country==='USD')}catch(e){}}
+  if(!items){el.textContent=tgReady()?"Couldn't reach the ForexFactory calendar just now; forecasts will fill in on the next try.":'Forecasts fill in by themselves once the robot is set up (Settings, Alerts when the app is closed). Until then, use "Paste from ForexFactory" on the Analysis page.';return}
+  const r=ffApply(items);store.set('ffAt',Date.now());
+  el.textContent=`Forecasts and previous figures fill in by themselves from the ForexFactory calendar. Last checked ${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}${r.filled||r.fixed||r.added?`: ${[r.filled&&`${r.filled} figures filled`,r.fixed&&`${r.fixed} dates corrected`,r.added&&`${r.added} releases added`].filter(Boolean).join(', ')}`:''}.`;
+}
+setInterval(()=>ffLoad(false),30*6e4);
 $('#tg-link').onclick=async()=>{tgRead();if(!tgReady()){tgShow('Fill in the robot address (starting with https://) and password first.',true);return}
   tgShow('Connecting…');
   try{const j=await tgCall('/link');tgc.linked=true;tgSave();await tgSync(true);tgShow();toast(`Connected to Telegram (${j.name}). Check your Telegram.`)}
@@ -1613,6 +1684,7 @@ $('#push-btn').onclick=async()=>{
   }catch(e){pushShow("Couldn't turn on notifications: "+esc(e.message==='Failed to fetch'?"couldn't reach the robot, check the address":e.message),true)}
 };
 pushShow();
+setTimeout(()=>{pullResults();ffLoad(false)},1500);
 tgFill();
 setInterval(()=>tgSync(false),5*6e4); // background refresh of zones and events
 
@@ -1641,6 +1713,8 @@ $('#ics-add').onclick=async()=>{
   const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=file.name;document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);
   toast(`${list.length} releases saved. Open the file to add them to your calendar.`);
 };
+$('#s-pip').value=String(pip);
+$('#s-pip').onchange=()=>{pip=+$('#s-pip').value;store.set('pip',pip);renderCalKeep();try{tgSyncSoon()}catch(e){}toast(`Pips: $1 = ${Math.round(1/pip)} pips`)};
 $('#s-lead').onchange=()=>{lead=+$('#s-lead').value;store.set('lead',lead);events.forEach(e=>{if(e.at>Date.now())e.fired=false});saveEv();tick();toast(`Alerts now ring ${lead} minutes before each release`)};
 $('#s-restore').onclick=()=>{deleted.clear();store.set('deleted',[]);const n=syncEvents();saveEv();renderCalKeep();toast(n?`Brought back ${n} events`:'No deleted events to bring back')};
 
