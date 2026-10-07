@@ -1102,8 +1102,19 @@ const SOURCES=[
   {name:'Binance gold index price',url:(tf,n)=>`https://fapi.binance.com/fapi/v1/indexPriceKlines?pair=XAUUSDT&interval=${tf}&limit=${n}`},
   {name:'Binance XAUUSDT gold perpetual',url:(tf,n)=>`https://fapi.binance.com/fapi/v1/klines?symbol=XAUUSDT&interval=${tf}&limit=${n}`},
   {name:'Binance PAXG/USDT (tokenised gold)',url:(tf,n)=>`https://data-api.binance.vision/api/v3/klines?symbol=PAXGUSDT&interval=${tf}&limit=${n}`},
-  {name:'Binance PAXG/USDT (tokenised gold)',url:(tf,n)=>`https://api.binance.com/api/v3/klines?symbol=PAXGUSDT&interval=${tf}&limit=${n}`}
+  {name:'Binance PAXG/USDT (tokenised gold)',url:(tf,n)=>`https://api.binance.com/api/v3/klines?symbol=PAXGUSDT&interval=${tf}&limit=${n}`},
+  {name:'Coinbase PAXG/USD (tokenised gold)',cb:true}
 ];
+/* Coinbase candles: [time s, low, high, open, close, vol], newest first, max 300, no 4h (built from 1h) */
+async function fetchCB(tf,n,signal){
+  const g={'1m':60,'5m':300,'15m':900,'1h':3600,'4h':3600,'1d':86400}[tf]||300,k=tf==='4h'?4:1;
+  const r=await fetch(`https://api.exchange.coinbase.com/products/PAXG-USD/candles?granularity=${g}`,{signal});
+  if(!r.ok)throw new Error('HTTP '+r.status);let j=await r.json();if(!Array.isArray(j)||!j.length)throw new Error('no data');
+  j=j.map(c=>[c[0]*1000,c[3],c[2],c[1],c[4],c[5]]).reverse();
+  if(k>1){const out=[];j.forEach(c=>{const t=Math.floor(c[0]/144e5)*144e5,L=out[out.length-1];
+    if(L&&L[0]===t){L[2]=Math.max(L[2],c[2]);L[3]=Math.min(L[3],c[3]);L[4]=c[4];L[5]+=c[5]}else out.push([t,c[1],c[2],c[3],c[4],c[5]])});j=out}
+  return j.slice(-n).map(c=>c.map((v,i)=>i?String(v):v));
+}
 const MYT=8*3600;
 const fmtPx=n=>Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 let ch=null,cs=null,chTf=store.get('chTf2','5m'),chData=[],srcIdx=0,chPoll=0,chLoop=0,chLoadedAt=0,lastPx=null,lastPxAt=0,rawLast=null;
@@ -1115,7 +1126,7 @@ let spotOff=null,chRaw=[],pollN=0; // spotOff: {src,val,at}
 const offMode=()=>pxOffset&&pxOffset.src===SOURCES[srcIdx].name?'broker':spotOff&&spotOff.src===SOURCES[srcIdx].name&&Date.now()-spotOff.at<15*6e4?'spot':'none';
 const offNow=()=>{const m=offMode();return m==='broker'?pxOffset.val:m==='spot'?spotOff.val:0};
 async function syncSpot(){ // returns true if the shift changed enough to redraw
-  try{const [sp,j]=await Promise.all([fetch(SPOT_URL).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}),fetchKl('1m',1)]);
+  try{const [sp,j]=await Promise.all([fetch(SPOT_URL,{signal:AbortSignal.timeout?AbortSignal.timeout(5000):undefined}).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}),fetchKl('1m',1)]);
     const spot=+sp.price;if(!(spot>0))return false;const raw=+j[j.length-1][4],val=Math.round((spot-raw)*100)/100;
     if(Math.abs(val)/spot>.02)return false; // ignore nonsense (over 2% apart)
     const old=spotOff&&spotOff.src===SOURCES[srcIdx].name?spotOff.val:null;
@@ -1131,12 +1142,25 @@ function reapply(){ // redraw with the current shift, keeping the view where it 
 let libP=null;
 function loadLib(){if(window.LightweightCharts)return Promise.resolve();if(libP)return libP;
   libP=new Promise((ok,no)=>{const sc=document.createElement('script');sc.src=LWC_URL;sc.onload=ok;sc.onerror=()=>{libP=null;no(new Error('chart library could not load'))};document.head.append(sc)});return libP}
+/* every request has a time limit, so a network that silently blocks a source can't leave the chart stuck on "Loading" */
+async function fromSource(i,tf,n,ms){
+  const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);
+  try{if(SOURCES[i].cb)return await fetchCB(tf,n,c.signal);
+    const r=await fetch(SOURCES[i].url(tf,n),{signal:c.signal});if(!r.ok)throw new Error('HTTP '+r.status);
+    const j=await r.json();if(!Array.isArray(j)||!j.length)throw new Error('no data');return j}
+  catch(e){throw e.name==='AbortError'?new Error('timed out'):e}finally{clearTimeout(t)}
+}
+let srcOkAt=0;
 async function fetchKl(tf,n){
-  let err=null;
-  for(let k=0;k<SOURCES.length;k++){const i=(srcIdx+k)%SOURCES.length;
-    try{const r=await fetch(SOURCES[i].url(tf,n));if(!r.ok)throw new Error('HTTP '+r.status);const j=await r.json();if(!Array.isArray(j)||!j.length)throw new Error('no data');
-      srcIdx=i;return j}catch(e){err=e}}
-  throw err||new Error('no price source reachable');
+  // the source that worked last gets a quick try on its own
+  if(Date.now()-srcOkAt<10*6e4){try{const j=await fromSource(srcIdx,tf,n,4000);srcOkAt=Date.now();return j}catch(e){}}
+  // otherwise ask every source at once and keep the best (earliest in the list) that answers in time
+  // (a better source that answers within 0.4 s of a worse one still wins; blocked ones are never waited on)
+  return new Promise((ok,no)=>{const got=[];let left=SOURCES.length,done=false,grace=0;
+    const pick=()=>{if(done)return;const i=got.findIndex(Boolean);if(i<0)return;done=true;clearTimeout(grace);srcIdx=i;srcOkAt=Date.now();ok(got[i])};
+    SOURCES.forEach((_,i)=>fromSource(i,tf,n,6000).then(j=>{got[i]=j;if(got.slice(0,i).every((x,k)=>x===false))pick();else if(!grace)grace=setTimeout(pick,400)},()=>{got[i]=false;if(got.some(Boolean)&&got.findIndex(Boolean)>=0&&SOURCES.every((_,k)=>k>=got.findIndex(Boolean)||got[k]===false))pick()})
+      .finally(()=>{if(--left===0&&!done){if(got.some(Boolean))pick();else{done=true;no(new Error('no price source reachable (all blocked or timed out)'))}}}));
+  });
 }
 const toBar=k=>{const o=offNow();return{time:Math.floor(k[0]/1000)+MYT,open:+k[1]+o,high:+k[2]+o,low:+k[3]+o,close:+k[4]+o,vol:+k[5]||0}};
 async function livePrice(){
@@ -1194,7 +1218,8 @@ function drawData(){
 }
 async function loadChart(){
   if(cs)chMsg('Loading prices…');
-  const j=await fetchKl(chTf,1000);if(pxOffset===null)await syncSpot();chRaw=j;chData=j.map(toBar);rawLast=+j[j.length-1][4];
+  const j=await fetchKl(chTf,1000);if(pxOffset===null){const sp=syncSpot();if(!await Promise.race([sp.then(()=>true),new Promise(r=>setTimeout(()=>r(false),1500))]))sp.then(c=>{if(c)reapply()})} /* don't hold the chart for the spot price */
+  chRaw=j;chData=j.map(toBar);rawLast=+j[j.length-1][4];
   chLoadedAt=Date.now();
   if(cs){cs.setData(chData);updAsk();const n=chData.length;ch.timeScale().setVisibleLogicalRange({from:Math.max(0,n-160),to:n+8})}
   setPrice();refreshZones();chMsg('');
@@ -1407,12 +1432,13 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){if(!za.on)
 const TF_SEC={'1m':60,'5m':300,'15m':900,'1h':3600,'4h':14400,'1d':86400};
 let ws=null,wsSrc=-1,wsOk=false,feedTimer=0,restTimer=0,spotTimer=0,feedFails=0,useTV=false,askLine=null,ref24=null,prevTk=null,lastTickAt=0;
 let spread=store.get('spread',0.2);
-const wsUrl=i=>i<=1?'wss://fstream.binance.com/ws/xauusdt@markPrice@1s':'wss://data-stream.binance.vision/ws/paxgusdt@miniTicker';
+const wsUrl=i=>SOURCES[i].cb?'wss://ws-feed.exchange.coinbase.com':i<=1?'wss://fstream.binance.com/ws/xauusdt@markPrice@1s':'wss://data-stream.binance.vision/ws/paxgusdt@miniTicker';
 function startFeed(){
   stopFeed();wsSrc=srcIdx;
   try{ws=new WebSocket(wsUrl(wsSrc));
+    if(SOURCES[wsSrc].cb){const w=ws;ws.onopen=()=>{try{w.send(JSON.stringify({type:'subscribe',product_ids:['PAXG-USD'],channels:['ticker']}))}catch(_){}}}
     ws.onmessage=e=>{try{const m=JSON.parse(e.data);
-      const p=m.e==='markPriceUpdate'?+(wsSrc===0?m.i:m.p):m.e==='24hrMiniTicker'?+m.c:NaN;
+      const p=m.e==='markPriceUpdate'?+(wsSrc===0?m.i:m.p):m.e==='24hrMiniTicker'?+m.c:m.type==='ticker'?+m.price:NaN;
       if(p>0){wsOk=true;feedFails=0;onTick(p,m.E||Date.now())}}catch(_){}};
     ws.onclose=()=>{wsOk=false;ws=null;clearTimeout(feedTimer);if(!document.hidden)feedTimer=setTimeout(startFeed,5000)};
     ws.onerror=()=>{try{ws&&ws.close()}catch(_){}};
