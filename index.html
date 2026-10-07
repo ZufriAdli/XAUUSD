@@ -1290,47 +1290,52 @@ function autoZones(d){
   const n=d.length;if(n<60)return[];
   const a=atr(d),px=d[n-1].close,C=[];zATR=a;
   const BASE={OB:3,FVG:2,Swing:1,PDH:2,PDL:2};
+  // a candidate this far from the price can never become a zone that is shown (zones over 8 ATR away are dropped), so skip its work
+  const far=c=>c.dir==='Buy'?px-c.to>10*a:c.from-px>10*a;
+  const add=c=>{if(!far(c))C.push(c)};
   // 1. order blocks
-  for(let i=10;i<n-3;i++){const b=d[i],nx=d.slice(i+1,i+4);
-    const hiA=Math.max(...nx.map(x=>x.high)),loA=Math.min(...nx.map(x=>x.low)),up=Math.max(...nx.map(x=>x.close))-b.close,dn=b.close-Math.min(...nx.map(x=>x.close));
-    const pr=d.slice(i-10,i+1),pHi=Math.max(...pr.map(x=>x.high)),pLo=Math.min(...pr.map(x=>x.low));
-    if(b.close<b.open&&up>=1.5*a&&hiA>pHi)C.push({dir:'Buy',kind:'OB',from:b.low,to:Math.min(b.open,b.low+a),i,start:i+4,power:up/a});
-    if(b.close>b.open&&dn>=1.5*a&&loA<pLo)C.push({dir:'Sell',kind:'OB',from:Math.max(b.open,b.high-a),to:b.high,i,start:i+4,power:dn/a});
+  for(let i=10;i<n-3;i++){const b=d[i];
+    let hiA=-Infinity,loA=Infinity,cHi=-Infinity,cLo=Infinity;
+    for(let j=i+1;j<i+4;j++){const x=d[j];if(x.high>hiA)hiA=x.high;if(x.low<loA)loA=x.low;if(x.close>cHi)cHi=x.close;if(x.close<cLo)cLo=x.close}
+    const up=cHi-b.close,dn=b.close-cLo;
+    if(!(b.close<b.open&&up>=1.5*a)&&!(b.close>b.open&&dn>=1.5*a))continue;
+    let pHi=-Infinity,pLo=Infinity;for(let j=i-10;j<=i;j++){const x=d[j];if(x.high>pHi)pHi=x.high;if(x.low<pLo)pLo=x.low}
+    if(b.close<b.open&&up>=1.5*a&&hiA>pHi)add({dir:'Buy',kind:'OB',from:b.low,to:Math.min(b.open,b.low+a),i,start:i+4,power:up/a});
+    if(b.close>b.open&&dn>=1.5*a&&loA<pLo)add({dir:'Sell',kind:'OB',from:Math.max(b.open,b.high-a),to:b.high,i,start:i+4,power:dn/a});
   }
   // 2. fair value gaps
   for(let i=1;i<n-1;i++){const p=d[i-1],q=d[i+1];
-    if(q.low-p.high>=.25*a)C.push({dir:'Buy',kind:'FVG',from:p.high,to:q.low,i,start:i+2,power:(q.low-p.high)/a,fvg:true});
-    if(p.low-q.high>=.25*a)C.push({dir:'Sell',kind:'FVG',from:q.high,to:p.low,i,start:i+2,power:(p.low-q.high)/a,fvg:true});
+    if(q.low-p.high>=.25*a)add({dir:'Buy',kind:'FVG',from:p.high,to:q.low,i,start:i+2,power:(q.low-p.high)/a,fvg:true});
+    if(p.low-q.high>=.25*a)add({dir:'Sell',kind:'FVG',from:q.high,to:p.low,i,start:i+2,power:(p.low-q.high)/a,fvg:true});
   }
   // 3. liquidity swings
   const k=3;for(let i=k;i<n-k;i++){let hi=true,lo=true;
     for(let j=i-k;j<=i+k;j++){if(j===i)continue;if(d[j].high>=d[i].high)hi=false;if(d[j].low<=d[i].low)lo=false}
-    if(hi)C.push({dir:'Sell',kind:'Swing',from:d[i].high-.3*a,to:d[i].high,i,start:i+k+1,power:1});
-    if(lo)C.push({dir:'Buy',kind:'Swing',from:d[i].low,to:d[i].low+.3*a,i,start:i+k+1,power:1});
+    if(hi)add({dir:'Sell',kind:'Swing',from:d[i].high-.3*a,to:d[i].high,i,start:i+k+1,power:1});
+    if(lo)add({dir:'Buy',kind:'Swing',from:d[i].low,to:d[i].low+.3*a,i,start:i+k+1,power:1});
   }
   // 4. previous trading day high/low (day rolls at 6 am MYT, around the New York close)
-  const day=t=>Math.floor((t-6*3600)/86400),today=day(d[n-1].time),t0=d.findIndex(x=>day(x.time)===today);
-  const prev=d.filter(x=>day(x.time)===today-1);
-  if(prev.length>=10&&t0>0){const H=Math.max(...prev.map(x=>x.high)),L=Math.min(...prev.map(x=>x.low));
-    C.push({dir:'Sell',kind:'PDH',from:H-.25*a,to:H+.1*a,i:t0,start:t0,power:1});
-    C.push({dir:'Buy',kind:'PDL',from:L-.1*a,to:L+.25*a,i:t0,start:t0,power:1})}
+  const day=t=>Math.floor((t-6*3600)/86400),today=day(d[n-1].time);let t0=-1,H=-Infinity,L=Infinity,pc=0;
+  for(let i=0;i<n;i++){const dy=day(d[i].time);if(t0<0&&dy===today)t0=i;if(dy===today-1){pc++;if(d[i].high>H)H=d[i].high;if(d[i].low<L)L=d[i].low}}
+  if(pc>=10&&t0>0){
+    add({dir:'Sell',kind:'PDH',from:H-.25*a,to:H+.1*a,i:t0,start:t0,power:1});
+    add({dir:'Buy',kind:'PDL',from:L-.1*a,to:L+.25*a,i:t0,start:t0,power:1})}
   // today's VWAP
   let pv=0,vv=0;for(let i=Math.max(0,t0);i<n;i++){const v=d[i].vol||1;pv+=(d[i].high+d[i].low+d[i].close)/3*v;vv+=v}const vwap=vv?pv/vv:null;
   // validate: drop broken zones, shrink/drop filled gaps, count retests
   const live=[];
-  C.forEach(c=>{let touches=0,inside=false,from=c.from,to=c.to,ok=true;
-    for(let j=c.start;j<n;j++){const x=d[j];
-      if(c.dir==='Buy'){if(x.close<from){ok=false;break}if(c.fvg){to=Math.min(to,x.low);if(to<=from){ok=false;break}}
-        const t=x.low<=to;if(t&&!inside)touches++;inside=t}
-      else{if(x.close>to){ok=false;break}if(c.fvg){from=Math.max(from,x.high);if(from>=to){ok=false;break}}
+  for(const c of C){let touches=0,inside=false,from=c.from,to=c.to,ok=true;
+    if(c.dir==='Buy'){for(let j=c.start;j<n;j++){const x=d[j];if(x.close<from){ok=false;break}if(c.fvg){if(x.low<to)to=x.low;if(to<=from){ok=false;break}}
+        const t=x.low<=to;if(t&&!inside)touches++;inside=t}}
+    else{for(let j=c.start;j<n;j++){const x=d[j];if(x.close>to){ok=false;break}if(c.fvg){if(x.high>from)from=x.high;if(from>=to){ok=false;break}}
         const t=x.high>=from;if(t&&!inside)touches++;inside=t}}
-    if(!ok)return;
-    if(c.dir==='Buy'?from>=px:to<=px)return; // must sit below (buy) or above (sell) the price, or contain it
+    if(!ok)continue;
+    if(c.dir==='Buy'?from>=px:to<=px)continue; // must sit below (buy) or above (sell) the price, or contain it
     if(to-from<.08*a){const m=(from+to)/2;from=m-.04*a;to=m+.04*a}
     const fresh=touches===0?1.5:touches===1?.5:-.5;
     const pow=c.kind==='OB'?Math.min(2,c.power-1):c.kind==='FVG'?Math.min(1.5,c.power):0;
     live.push({...c,from,to,touches,score:BASE[c.kind]+pow+fresh-1.5*(n-1-c.i)/n});
-  });
+  }
   // merge overlapping zones of the same side; confluence raises the score
   const out=[];
   ['Buy','Sell'].forEach(dir=>{
@@ -1346,7 +1351,8 @@ function autoZones(d){
       if(vwap&&vwap>=g.from-.15*a&&vwap<=g.to+.15*a){score+=.7;kinds.push('VWAP')}
       const dist=dir==='Buy'?Math.max(0,px-g.to):Math.max(0,g.from-px);
       if(dist>8*a)return;
-      out.push({type:dir,from:Math.round(g.from*100)/100,to:Math.round(g.to*100)/100,score,tags:kinds,i:Math.min(...g.m.map(c=>c.i)),t:d[Math.min(...g.m.map(c=>c.i))].time,fresh:best.touches===0,src:'auto',
+      const i0=Math.min(...g.m.map(c=>c.i));
+      out.push({type:dir,from:Math.round(g.from*100)/100,to:Math.round(g.to*100)/100,score,tags:kinds,i:i0,t:d[i0].time,fresh:best.touches===0,src:'auto',
         grade:score>=6?'Strong':score>=4?'Good':'Weak'});
     });
   });
