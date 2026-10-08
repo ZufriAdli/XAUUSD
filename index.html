@@ -247,6 +247,10 @@ dialog h3{font-size:30px;margin-bottom:10px}
 dialog p.sub{margin:0 0 18px;color:var(--muted);font-size:14px}
 dialog::backdrop{background:rgba(3,9,22,.6);backdrop-filter:blur(3px)}
 .dlg-acts{display:flex;justify-content:flex-end;gap:8px;margin-top:24px}
+.topbar{position:relative;z-index:5;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;padding:10px 16px;background:var(--soft);border-bottom:1px solid var(--gold-fill);font-size:14px;text-align:center}
+.topbar[hidden]{display:none}
+.topbar.warn{border-color:var(--sell);color:var(--ink)}
+.topbar.warn .link{font-size:14px}
 #toasts{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:8px;z-index:50;max-width:min(380px,calc(100vw - 32px))}
 .toast{background:var(--ink);color:var(--on-gold);padding:13px 18px;border-radius:6px;font-size:14px;font-weight:500;box-shadow:0 12px 30px rgba(0,0,0,.2);border-left:3px solid var(--gold-fill)}
 @media (prefers-reduced-motion:no-preference){.toast{animation:pop .25s ease-out}@keyframes pop{from{transform:translateY(8px);opacity:0}}#result>.result{animation:rise .35s ease-out}@keyframes rise{from{opacity:0;transform:translateY(6px)}}}
@@ -377,6 +381,8 @@ b.up{color:var(--buy)}b.down{color:var(--sell)}
   </div>
 </header>
 
+<div id="robot-warn" class="topbar warn" role="alert" hidden></div>
+<div id="upd-bar" class="topbar" role="status" hidden><span>A new version of the app is ready.</span> <button class="btn small gold" id="upd-go" type="button">Reload</button></div>
 <main class="wrap">
   <!-- HOME -->
   <section class="view on" id="v-home">
@@ -1466,7 +1472,7 @@ function syncZtf(){$$('[data-ztf]').forEach(b=>b.setAttribute('aria-pressed',zon
 $$('[data-ztf]').forEach(b=>b.onclick=()=>{const tf=b.dataset.ztf;
   if(zoneTfs.includes(tf)){if(zoneTfs.length===1){toast('Keep at least one timeframe');return}zoneTfs=zoneTfs.filter(x=>x!==tf)}
   else zoneTfs=[...zoneTfs,tf].sort((a,b)=>TF_RANK[a]-TF_RANK[b]);
-  store.set('zoneTfs',zoneTfs);syncZtf();updateMTF(true)});
+  store.set('zoneTfs',zoneTfs);syncZtf();updateMTF(true);try{tgSyncSoon()}catch(e){}});
 syncZtf();
 
 /* ---------- zone alerts: ring when the live price moves into a zone ---------- */
@@ -1607,7 +1613,7 @@ function renderBias(){
   const c=$('#bias-clear');if(c)c.onclick=clearBias;
 }
 $('#zone-list').addEventListener('click',e=>{const a=e.target.closest('[data-zpa]');if(a){const[t,tp,sl]=a.dataset.zpa.split('|');const up=t==='Buy';paAdd(+tp,`TP ${t.toLowerCase()}`,0,false,true,up?'up':'down');paAdd(+sl,`SL ${t.toLowerCase()}`,0,false,true,up?'down':'up');paChanged();toast(`Alerts set: TP ${fmtPx(+tp)}, SL ${fmtPx(+sl)}`);return}
-  const b=e.target.closest('[data-zrm]');if(!b)return;userZones=userZones.filter(z=>z.id!==b.dataset.zrm);store.set('zones',userZones);refreshZones();toast('Zone deleted')});
+  const b=e.target.closest('[data-zrm]');if(!b)return;markGone([b.dataset.zrm]);userZones=userZones.filter(z=>z.id!==b.dataset.zrm);store.set('zones',userZones);try{tgSync(true)}catch(e){}refreshZones();toast('Zone deleted')});
 $('#z-auto').onchange=()=>{showAuto=$('#z-auto').checked;store.set('showAutoZones',showAuto);refreshZones()};
 $('#z-add').onclick=()=>{
   const a=parseNum($('#z-from').value),b=parseNum($('#z-to').value);
@@ -1707,6 +1713,8 @@ function onTick(raw,t,fromSpot){
    Each alert rings when price reaches its level (direction is set from where price was when you added it).
    The robot checks them every 3 seconds with the app closed; the app checks on every tick while it's open. */
 let pxAlerts=store.get('pxAlerts',[]),paLines=[],paPicking=false;
+let tomb=store.get('tomb',{}); // ids of alerts and zones deleted on this device, so other devices drop them too
+function markGone(ids){const t=Date.now();ids.forEach(id=>tomb[id]=t);for(const k in tomb)if(t-tomb[k]>14*864e5)delete tomb[k];store.set('tomb',tomb)}
 const PA_REARM=3; // a repeating alert re-arms once price has moved $3 away
 function paAdd(px,note,warn,repeat,quiet,dir){
   if(!(px>0))return toast('Enter a price');
@@ -1731,19 +1739,48 @@ function paCheck(px){if(!pxAlerts.length||px==null||!goldOpen(Date.now()))return
       if(a.repeat){a.armed=false}else gone.push(a.id);ch=true}
     else if(a.warn&&!a.warned&&(a.dir==='up'?px>=a.px-a.warn:px<=a.px+a.warn)){a.warned=true;ch=true;
       const t=`⏳ XAUUSD $${a.warn} from ${fmtPx(a.px)}`,b=`${a.note?a.note+'. ':''}Price ${fmtPx(px)}.`;if(robot)toast(`${t} — ${b}`);else notify(t,b,'paw-'+a.id)}}
-  if(gone.length)pxAlerts=pxAlerts.filter(a=>!gone.includes(a.id));
+  if(gone.length){pxAlerts=pxAlerts.filter(a=>!gone.includes(a.id));markGone(gone)}
   if(ch){store.set('pxAlerts',pxAlerts);paRender();paDraw();if(gone.length)try{tgSync(true)}catch(e){}}
   else if(Date.now()-(paCheck.r||0)>2000){paCheck.r=Date.now();paRender()}}
 // alerts the robot already rang are removed here too
-async function paPull(){if(!tgReady()||!pxAlerts.length)return;try{const j=await tgCall('/alerts');const done=j.done||[],rep=j.fired||{};let ch=false;
-  if(done.length){const n=pxAlerts.length;pxAlerts=pxAlerts.filter(a=>!done.includes(a.id));ch=n!==pxAlerts.length}
-  for(const a of pxAlerts)if(rep[a.id]&&a.armed&&rep[a.id]>(a.firedAt||0)){a.armed=false;a.firedAt=rep[a.id];ch=true}
-  if(ch){store.set('pxAlerts',pxAlerts);paRender();paDraw()}}catch(e){}}
-setInterval(()=>{if(!document.hidden)paPull()},6e4);document.addEventListener('visibilitychange',()=>{if(!document.hidden)paPull()});
+/* ---------- shared with your other devices through the robot ---------- */
+const sharedNow=()=>({pip,spread,quietNews,lead,which:za.which,tfs:zoneTfs,newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false});
+let setAt=store.get('setAt',0),lastShared=null;
+function sharedMark(){const j=JSON.stringify(sharedNow());if(lastShared===null){lastShared=store.get('lastShared',j);}if(j!==lastShared){lastShared=j;setAt=Date.now();store.set('setAt',setAt);store.set('lastShared',j)}}
+function applyShared(sh){if(!sh)return;let ch=false;
+  if(sh.tomb){for(const k in sh.tomb)if(!tomb[k])tomb[k]=sh.tomb[k];store.set('tomb',tomb)}
+  if(Array.isArray(sh.pxAlerts)){const loc=new Map(pxAlerts.map(a=>[a.id,a])),done=sh.done||[],fired=sh.fired||{};
+    const nx=sh.pxAlerts.filter(a=>!tomb[a.id]&&!done.includes(a.id)).map(a=>{const l=loc.get(a.id);return{armed:true,warned:false,...(l||{}),...a}});
+    for(const a of nx)if(fired[a.id]&&a.armed&&fired[a.id]>(a.firedAt||0)){a.armed=false;a.firedAt=fired[a.id]}
+    if(JSON.stringify(nx)!==JSON.stringify(pxAlerts)){pxAlerts=nx;store.set('pxAlerts',pxAlerts);paRender();paDraw();ch=true}}
+  if(Array.isArray(sh.userZones)){const nz=sh.userZones.filter(z=>!tomb[z.id]);if(JSON.stringify(nz)!==JSON.stringify(userZones)){userZones=nz;store.set('zones',userZones);ch=true;try{refreshZones()}catch(e){}}}
+  if((sh.setAt||0)>setAt&&sh.settings){const t=sh.settings;
+    if(+t.pip>0){pip=+t.pip;store.set('pip',pip);$('#s-pip').value=String(pip)}
+    if(t.spread!=null&&+t.spread>=0){spread=PLAN_SPREAD=+t.spread;store.set('spread',spread);$('#z-spread').value=spread?String(spread):'';try{updAsk()}catch(e){}}
+    if(typeof t.quietNews==='boolean'){quietNews=t.quietNews;store.set('quietNews',quietNews);$('#s-quiet').checked=quietNews}
+    if([5,15,30,60].includes(+t.lead)){lead=+t.lead;store.set('lead',lead);$('#s-lead').value=String(lead)}
+    if(t.which==='good'||t.which==='all'){za.which=t.which;store.set('zoneAlerts',za);zaSync()}
+    if(Array.isArray(t.tfs)&&t.tfs.length&&JSON.stringify(t.tfs)!==JSON.stringify(zoneTfs)){zoneTfs=t.tfs.filter(x=>TF_SEC[x]);store.set('zoneTfs',zoneTfs);syncZtf();try{updateMTF(true)}catch(e){}}
+    if(typeof t.newsOn==='boolean')tgc.news=t.newsOn;if(typeof t.zonesOn==='boolean')tgc.zones=t.zonesOn;if(typeof t.reportOn==='boolean')tgc.rep=t.reportOn;tgSave();tgFill();
+    setAt=sh.setAt;store.set('setAt',setAt);lastShared=JSON.stringify(sharedNow());store.set('lastShared',lastShared);
+    try{renderCalKeep();renderZoneList();zaStatus()}catch(e){}ch=true}
+  if(ch)tgLastHash=JSON.stringify({...tgPayload(),autoZ:0,autoAt:0}); // what we now hold is what the robot holds
+  robotWarn(sh.run)}
+/* red bar when the robot has stopped running (the robot saves its report every 10 minutes, so allow a margin) */
+let robotFails=0;
+function robotWarn(run,err){const el=$('#robot-warn');if(!el)return;
+  if(!tgReady()){el.hidden=true;return}
+  if(err){robotFails++;if(robotFails<3)return;el.innerHTML=`<span>⚠️ Can't reach your alert robot (${esc(err)}). Alerts with the app closed may not be working.</span> <button class="link" data-go="set">Check</button>`;el.hidden=false;return}
+  robotFails=0;if(!run){el.hidden=true;return}
+  const late=Date.now()-run.at,limit=(run.every||6e5)+5*6e4;
+  if(late>limit){el.innerHTML=`<span>⚠️ Your alert robot last ran <b>${Math.round(late/6e4)} minutes ago</b>, so alerts with the app closed are not going out. In Cloudflare check the worker's Cron trigger (every minute).</span> <button class="link" data-go="set">Check robot</button>`;el.hidden=false}
+  else el.hidden=true}
+async function sharedPull(){if(!tgReady())return;try{const j=await tgCall('/shared');applyShared(j.shared)}catch(e){robotWarn(null,e.message==='Failed to fetch'?'no connection':e.message)}}
+setInterval(()=>{if(!document.hidden)sharedPull()},6e4);document.addEventListener('visibilitychange',()=>{if(!document.hidden)sharedPull()});setTimeout(sharedPull,1500);
 $('#pa-add').onclick=()=>{const v=parseNum($('#pa-px').value);paAdd(v,$('#pa-note').value.trim(),$('#pa-warn').value,$('#pa-rep').checked);
   if(v>0&&lastPx!=null){$('#pa-px').value='';$('#pa-note').value='';toast(`Alert set at ${fmtPx(v)}`)}};
 $('#pa-px').onkeydown=$('#pa-note').onkeydown=e=>{if(e.key==='Enter')$('#pa-add').click()};
-$('#pa-list').addEventListener('click',e=>{const b=e.target.closest('[data-parm]');if(!b)return;pxAlerts=pxAlerts.filter(a=>a.id!==b.dataset.parm);paChanged();toast('Alert deleted')});
+$('#pa-list').addEventListener('click',e=>{const b=e.target.closest('[data-parm]');if(!b)return;markGone([b.dataset.parm]);pxAlerts=pxAlerts.filter(a=>a.id!==b.dataset.parm);paChanged();toast('Alert deleted')});
 $('#pa-pick').onclick=()=>{if(!cs||chMode!=='zones'){toast('Switch to Zones chart to pick a level');return}
   paPicking=!paPicking;$('#ch').classList.toggle('picking',paPicking);$('#pa-pick').setAttribute('aria-pressed',paPicking);
   if(paPicking){toast('Tap the chart at the price you want');$('#ch').scrollIntoView({block:'center',behavior:'smooth'})}};
@@ -1798,7 +1835,7 @@ window.addEventListener('online',()=>renderTV(true));
 $('#s-lead').value=String(lead);
 /* ---------- Telegram robot (Cloudflare worker): settings + sync ---------- */
 let tgc=Object.assign({url:'',secret:'',news:true,zones:true,linked:false,lastSync:0},store.get('tg',{}));
-let tgTimer=0,tgLastHash='',tgBusy=false;
+let tgTimer=0,tgLastHash='',tgBusy=false,tgAgain=false;
 const tgReady=()=>/^https:\/\//.test(tgc.url)&&tgc.secret.length>=4;
 function tgSave(){store.set('tg',tgc)}
 function tgShow(msg,bad){const el=$('#tg-status');if(!el)return;
@@ -1814,20 +1851,21 @@ function tgPayload(){
   const adj=offMode()==='broker'&&spotOff&&spotOff.src===SOURCES[srcIdx].name?Math.round((pxOffset.val-spotOff.val)*100)/100:0;
   const biasFor=e=>{const h=history.find(h=>h.evId===e.id&&(h.dir==='Buy'||h.dir==='Sell'));if(h)return{dir:h.dir};
     return lastBias&&lastBias.evId===e.id&&(lastBias.dir==='Buy'||lastBias.dir==='Sell')?{dir:lastBias.dir}:null};
-  return{newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false,quietNews,pip,spread,lead,which:za.which,tf:chTf,adj,
+  return{setAt,tomb,newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false,quietNews,pip,spread,lead,which:za.which,tf:chTf,adj,
     events:events.filter(e=>e.at>now-3*36e5&&e.at<now+60*864e5&&(e.type!=='Claims'||showClaims)).map(e=>{const h=head(e);return{key:e.key||e.id,type:e.type,name:e.name||NAMES[e.type]||e.type,at:e.at,fc:h.fc||'',pv:h.pv||'',bias:biasFor(e)}}),
     pxAlerts:pxAlerts.map(a=>({id:a.id,px:a.px,dir:a.dir,note:a.note,warn:a.warn,repeat:a.repeat})),
     userZones,aiZones:aiFresh()?{...aiZones,until:biasUntil(aiZones)}:null,
     tfs:zoneTfs,autoZ:autoZ.map(z=>({type:z.type,from:z.from,to:z.to,grade:z.grade,tags:z.tags,t:z.t,tf:z.tf,tfs:z.tfs,atr:z.atr})),autoAt:autoZ.length?now:0};
 }
 async function tgSync(force){
-  if(!tgReady()||tgBusy)return;
+  if(!tgReady())return;if(tgBusy){if(force)tgAgain=true;return} // a change made mid-sync is sent right after
+  sharedMark();
   const p=tgPayload(),h=JSON.stringify({...p,autoZ:0,autoAt:0}); // zone changes alone don't trigger a sync (each sync is one of the robot's 1000 daily KV writes)
   if(Date.now()-(tgc.autoSent||0)>2*36e5)force=true; // refresh the robot's backup copy of the zones every 2 hours
   if(!force&&h===tgLastHash)return; // nothing changed, don't use up the robot's daily writes
   tgBusy=true;
-  try{const j=await tgCall('/sync',p);tgLastHash=h;tgc.lastSync=Date.now();tgc.autoSent=Date.now();tgSave();tgShow();applyResults(j.results)}
-  catch(e){tgShow("Couldn't reach the robot: "+e.message,true)}finally{tgBusy=false}
+  try{const j=await tgCall('/sync',p);tgLastHash=h;tgc.lastSync=Date.now();tgc.autoSent=Date.now();tgSave();tgShow();applyResults(j.results);applyShared(j.shared)}
+  catch(e){tgShow("Couldn't reach the robot: "+e.message,true)}finally{tgBusy=false;if(tgAgain){tgAgain=false;setTimeout(()=>tgSync(true),50)}}
 }
 // changes are batched; at most one sync a minute unless forced
 function tgSyncSoon(ms=4000){if(!tgReady())return;clearTimeout(tgTimer);const wait=Math.max(ms,6e4-(Date.now()-tgc.lastSync));tgTimer=setTimeout(()=>tgSync(false),Math.min(wait,6e4))}
@@ -2045,7 +2083,7 @@ $('#s-pip').value=String(pip);
 $('#s-quiet').checked=quietNews;
 $('#s-quiet').onchange=()=>{quietNews=$('#s-quiet').checked;store.set('quietNews',quietNews);zaStatus();try{tgSync(true)}catch(e){}toast(quietNews?'Zone alerts will pause around big news':'Zone alerts stay on during news')};
 $('#s-pip').onchange=()=>{pip=+$('#s-pip').value;store.set('pip',pip);renderCalKeep();try{tgSyncSoon()}catch(e){}toast(`Pips: $1 = ${Math.round(1/pip)} pips`)};
-$('#s-lead').onchange=()=>{lead=+$('#s-lead').value;store.set('lead',lead);events.forEach(e=>{if(e.at>Date.now())e.fired=false});saveEv();tick();toast(`Alerts now ring ${lead} minutes before each release`)};
+$('#s-lead').onchange=()=>{lead=+$('#s-lead').value;store.set('lead',lead);try{tgSyncSoon()}catch(e){}events.forEach(e=>{if(e.at>Date.now())e.fired=false});saveEv();tick();toast(`Alerts now ring ${lead} minutes before each release`)};
 $('#s-restore').onclick=()=>{deleted.clear();store.set('deleted',[]);const n=syncEvents();saveEv();renderCalKeep();toast(n?`Brought back ${n} events`:'No deleted events to bring back')};
 
 /* settings: backup and restore (API key is never included) */
@@ -2097,7 +2135,13 @@ $('#tv-box').innerHTML=tickerHTML();startFeed();zaSync();zaEnsureData();
 // refresh the calendar once a day while the app stays open
 setInterval(()=>{if(syncEvents()){saveEv();renderCalKeep()}},6*36e5);
 if(store.get('gkey','')&&Date.now()-store.get('gmodelsAt',0)>7*864e5)refreshModels(true);
-if('serviceWorker' in navigator&&isSecureContext&&location.protocol!=='file:'){navigator.serviceWorker.register('sw.js').then(r=>{swReg=r}).catch(()=>{})}
+if('serviceWorker' in navigator&&isSecureContext&&location.protocol!=='file:'){navigator.serviceWorker.register('sw.js').then(r=>{swReg=r;
+  // look for a new version every 10 minutes and whenever the app comes back to the screen
+  setInterval(()=>r.update().catch(()=>{}),10*6e4);document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update().catch(()=>{})})}).catch(()=>{});
+  // a new version took over: offer a reload (not automatic, so a chart you're watching isn't wiped)
+  let hadCtl=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!hadCtl){hadCtl=true;return}$('#upd-bar').hidden=false});
+  $('#upd-go').onclick=()=>location.reload()}
 })();
 </script>
 </body>
