@@ -318,6 +318,14 @@ footer{border-top:1px solid var(--line);padding:28px 0;color:var(--muted);font-s
 .sw input{width:auto;accent-color:var(--gold-fill)}
 .za{display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px;padding:14px 16px;margin:0 0 10px;border:1px solid var(--hair);border-radius:14px;background:var(--soft)}
 .za .za-main{color:var(--ink);font-size:15px}
+.zstat{width:100%;border-collapse:collapse;min-width:0;font-size:14px}
+.zstat th,.zstat td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:right}
+.zstat th:first-child,.zstat td:first-child{text-align:left}
+.zstat th{font-size:12px;color:var(--muted);font-weight:700}
+.zstat tr.grp td{font-weight:700;color:var(--gold);padding-top:16px;text-align:left}
+.zstat .up{color:var(--buy)}.zstat .down{color:var(--sell)}
+.zrec{list-style:none;margin:16px 0 0;padding:0;font-size:14px}
+.zrec li{display:flex;gap:10px;justify-content:space-between;padding:8px 2px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .ztf-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 12px}
 .zones .zt small.ztf{display:block;font-family:var(--sans);font-style:normal;font-size:12px;font-weight:700;color:var(--muted);margin-top:4px;letter-spacing:.02em}
 .zb .lb b{font-weight:800;margin-right:4px}
@@ -519,6 +527,12 @@ b.up{color:var(--buy)}b.down{color:var(--sell)}
       <ul class="zones" id="zone-list"></ul>
     </div>
 
+    <div class="block" style="margin-top:44px">
+      <div class="block-h"><h2>How the zone alerts did</h2><button class="link" id="zs-refresh">Refresh</button></div>
+      <p class="note" style="margin-bottom:14px">The robot records every zone alert and checks whether price reached the TP or the SL first (if both happen inside one check it counts as a loss; alerts still open after 24 hours expire). Gold's closed hours and the quiet window around big news are skipped.</p>
+      <div id="zone-stats"></div>
+    </div>
+
     <div class="step" style="margin-top:36px">
       <h3>Add your own zone</h3>
       <div class="zform">
@@ -561,6 +575,7 @@ b.up{color:var(--buy)}b.down{color:var(--sell)}
         <label>Remind me before each release
           <select id="s-lead"><option value="5">5 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option></select>
         </label>
+        <label class="sw full" style="flex-direction:row;align-items:center;gap:10px;color:var(--ink)"><input type="checkbox" id="s-quiet"> Pause zone alerts from 5 minutes before to 10 minutes after big news (NFP, CPI, FOMC…)</label>
         <label>How your broker counts gold pips
           <select id="s-pip"><option value="0.1">1 pip = $0.10 (most brokers: $1 = 10 pips)</option><option value="0.01">1 pip = $0.01 ($1 = 100 pips)</option><option value="1">1 pip = $1.00</option></select>
         </label>
@@ -969,7 +984,7 @@ function showResult(r,ev){
    ${r.zones&&r.zones.length?`<p class="levels"><b>Zones:</b> ${r.zones.map(z=>`${z.type} ${fmtPx(z.from)}–${fmtPx(z.to)}`).join(', ')}</p>`:''}
    <div class="cta" style="margin-top:22px"><button class="btn small" id="save-an">Save to history</button><button class="btn small ghost" data-go="chart">${r.zones&&r.zones.length?'See zones on chart':'Open chart'}</button></div>
    <p class="fine">Not financial advice.</p></div>`;el.scrollIntoView({behavior:'smooth',block:'start'});
-  lastBias={dir:r.dir,conf:r.conf,type:ev.type,evId:ev.id,src:r.src,t:Date.now()};store.set('lastBias',lastBias);if(typeof refreshZones==='function')refreshZones();
+  lastBias={dir:r.dir,conf:r.conf,type:ev.type,evId:ev.id,evAt:ev.at,src:r.src,t:Date.now()};store.set('lastBias',lastBias);if(typeof refreshZones==='function')refreshZones();
   $('#save-an').onclick=()=>{history.unshift({id:uid(),t:Date.now(),evId:ev.id,type:ev.type,evAt:ev.at,dir:r.dir,conf:r.conf,src:r.src,summary:r.summary,outcome:null});gradeHistory();try{tgSyncSoon()}catch(e){}store.set('history',history);renderHist();renderRecord();toast('Saved to history');$('#save-an').disabled=true};
 }
 function curForm(){
@@ -1063,7 +1078,7 @@ For "zones": if a current price is given, give 1-2 Buy zones below the price and
     if(r.usd!=='Stronger'&&r.usd!=='Weaker')r.usd=dir==='Sell'?'Stronger':'Weaker';
     const zs=(Array.isArray(r.zones)?r.zones:[]).map(z=>{const a=parseNum(z&&z.from),b=parseNum(z&&z.to),t=/sell/i.test(z&&z.type)?'Sell':/buy/i.test(z&&z.type)?'Buy':null;
       return t&&a!==null&&b!==null&&a>0?{type:t,from:Math.min(a,b),to:Math.max(a,b)}:null}).filter(z=>z&&(!pxNum||Math.abs(z.from-pxNum)/pxNum<.1)).slice(0,4);
-    if(zs.length){aiZones={t:Date.now(),ev:f.ev.type,zones:zs};store.set('aiZones',aiZones)}
+    if(zs.length){aiZones={t:Date.now(),ev:f.ev.type,evId:f.ev.id,evAt:f.ev.at,zones:zs};store.set('aiZones',aiZones)}
     showResult({dir,conf:Math.max(0,Math.min(100,parseInt(r.conf)||0)),usd:r.usd||'Neutral',summary:r.summary||'',levels:r.levels||'',scen:Array.isArray(r.scen)?r.scen.filter(s=>Array.isArray(s)&&s.length>=2).slice(0,4):[],zones:zs,src:'AI analysis'},f.ev);
   }catch(err){
     if(err&&(err.code==='cancelled'||err.name==='AbortError'))return;
@@ -1259,15 +1274,16 @@ function drawData(){
 }
 async function loadChart(){
   if(cs)chMsg('Loading prices…');
-  const j=await fetchKl(chTf,1000);if(pxOffset===null){const sp=syncSpot();if(!await Promise.race([sp.then(()=>true),new Promise(r=>setTimeout(()=>r(false),1500))]))sp.then(c=>{if(c)reapply()})} /* don't hold the chart for the spot price */
-  chRaw=j;chGen=srcGen;chData=j.map(toBar);rawLast=+j[j.length-1][4];
+  let j=await fetchKl(chTf,1000);if(pxOffset===null){const sp=syncSpot();if(!await Promise.race([sp.then(()=>true),new Promise(r=>setTimeout(()=>r(false),1500))]))sp.then(c=>{if(c)reapply()})} /* don't hold the chart for the spot price */
+  rawLast=+j[j.length-1][4];j=j.filter(k=>goldOpen(k[0]));if(!j.length)throw new Error('no candles while gold was open');
+  chRaw=j;chGen=srcGen;chData=j.map(toBar);
   chLoadedAt=Date.now();
   if(cs){cs.setData(chData);updAsk();const n=chData.length;ch.timeScale().setVisibleLogicalRange({from:Math.max(0,n-160),to:n+8})}
   setPrice();refreshZones();chMsg('');
 }
 async function pollChart(){
   if(!$('#v-chart').classList.contains('on')||document.hidden||!chRaw.length)return;
-  try{const j=await fetchKl(chTf,2);let nb=false;
+  try{let j=await fetchKl(chTf,2);let nb=false;j=j.filter(k=>goldOpen(k[0]));if(!j.length)return;
     if(chGen!==srcGen){reloadForNewSource();return}
     j.forEach(k=>{const L=chRaw[chRaw.length-1];if(L&&L[0]===k[0])chRaw[chRaw.length-1]=k;else if(!L||k[0]>L[0]){chRaw.push(k);nb=true}});
     j.map(toBar).forEach(b=>{if(cs)cs.update(b);const L=chData[chData.length-1];if(L&&L.time===b.time)chData[chData.length-1]=b;else if(!L||b.time>L.time)chData.push(b)});
@@ -1388,8 +1404,13 @@ function mtfCombine(byTf){
   all.forEach(z=>{const up=z.tfs.slice(1);if(up.length){z.score+=up.length;z.tags.push('inside '+up.join('+'));z.grade=z.score>=6?'Strong':z.score>=4?'Good':'Weak'}});
   return all;
 }
-const biasFresh=()=>lastBias&&Date.now()-lastBias.t<2*864e5;
-const aiFresh=()=>aiZones&&Date.now()-aiZones.t<3*864e5;
+/* a bias and its AI zones belong to one release: they stop 4 hours after that release (or 4 hours after the analysis, if it was done later) */
+const BIAS_HOURS=4;
+function biasUntil(o){if(!o)return 0;let at=o.evAt;if(at==null&&o.evId){const e=events.find(x=>x.id===o.evId);if(e)at=e.at}
+  return Math.max(at||0,o.t||0)+BIAS_HOURS*36e5}
+const biasFresh=()=>!!lastBias&&Date.now()<biasUntil(lastBias);
+const aiFresh=()=>!!aiZones&&Date.now()<biasUntil(aiZones.evId||aiZones.evAt!=null?aiZones:{...aiZones,evAt:lastBias&&lastBias.type===aiZones.ev?biasUntil(lastBias)-BIAS_HOURS*36e5:null});
+function clearBias(){lastBias=null;aiZones=null;store.set('lastBias',null);store.set('aiZones',null);try{renderZoneEls()}catch(e){}renderZoneList();renderBias();zaStatus();try{tgSync(true)}catch(e){}toast('Bias and AI zones cleared')}
 function allZones(){
   const z=[];if(showAuto)z.push(...autoZ);
   if(aiFresh())z.push(...aiZones.zones.map(x=>({...x,src:'ai'})));
@@ -1404,7 +1425,7 @@ async function updateMTF(force){
     for(const tf of zoneTfs){const c=mtfCache[tf],sec=TF_SEC[tf]||300;
       if(tf===chTf&&chData.length&&chGen===srcGen){const zs=autoZones(chData);zs.forEach(z=>z.atr=zATR);mtfCache[tf]={gen:srcGen,next:0,zones:zs};byTf[tf]=zs;continue} // the chart's own live candles
       if(!force&&c&&c.gen===srcGen&&now<c.next){byTf[tf]=c.zones;continue}
-      try{const j=await fetchKl(tf,300),bars=j.map(toBar),zs=autoZones(bars);zs.forEach(z=>z.atr=zATR);
+      try{const j=(await fetchKl(tf,300)).filter(k=>goldOpen(k[0]));if(j.length<60)throw new Error('not enough candles');const bars=j.map(toBar),zs=autoZones(bars);zs.forEach(z=>z.atr=zATR);
         mtfCache[tf]={gen:srcGen,next:j[j.length-1][0]+sec*1000+5000,zones:zs};byTf[tf]=zs}
       catch(e){if(c)byTf[tf]=c.zones}}
     autoZ=mtfCombine(byTf);
@@ -1433,13 +1454,21 @@ function beep(){
       g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.3,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+.18);o.connect(g).connect(actx.destination);o.start(t);o.stop(t+.2)})}catch(e){}
 }
 let zlAt=0;
+/* gold trades Sunday 6 pm to Friday 5 pm New York time, with a 1-hour break at 5 pm on weekdays */
+const fET=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',weekday:'short',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+function goldOpen(ms){const p={};for(const x of fET.formatToParts(ms))p[x.type]=x.value;const t=(+p.hour)*60+(+p.minute),wd=p.weekday;
+  if(wd==='Sat')return false;if(wd==='Sun')return t>=18*60;if(wd==='Fri')return t<17*60;return t<17*60||t>=18*60}
+const QUIET_TYPES=new Set(['NFP','CPI','PPI','PCE','FOMC','GDP','Retail Sales','ISM PMI','ISM Services','JOLTS','Fed Speech','FOMC Minutes']);
+let quietNews=store.get('quietNews',true);
+function newsQuiet(ms){if(!quietNews)return null;return events.find(e=>QUIET_TYPES.has(e.type)&&ms-e.at>=-5*6e4&&ms-e.at<=10*6e4)||null}
 function checkZones(px){
   if(Date.now()-zlAt>2000&&$('#v-chart').classList.contains('on')){zlAt=Date.now();renderZoneList()} // keep 'above/below/inside' current
   if(!za.on||px==null)return;
-  const now=Date.now(),zs=zaZones(),all=allZones(),got=[];
+  const now=Date.now();if(!goldOpen(now)){zaStatus();return}
+  const zs=zaZones(),all=allZones(),got=[],qn=newsQuiet(now);
   zs.forEach(z=>{const k=zKey(z),inside=px>=z.from&&px<=z.to,st=zaState.get(k);
     if(!st){zaState.set(k,{inside,last:0});return} // first look: remember, don't ring for a zone we were already in
-    if(inside&&!st.inside&&now-st.last>10*6e4){st.last=now;got.push({z,k})}
+    if(inside&&!st.inside&&now-st.last>10*6e4&&!qn){st.last=now;got.push({z,k})} // during big news the zone counts as entered, without an alert
     st.inside=inside});
   // one alert per side, even when several timeframes' zones are entered together
   for(const dir of['Buy','Sell']){const g=got.filter(x=>x.z.type===dir);if(!g.length)continue;
@@ -1455,6 +1484,8 @@ function checkZones(px){
 function zaStatus(){
   const el=$('#za-status');if(!el)return;
   if(!za.on){el.textContent='Zone alerts are off.';return}
+  if(!goldOpen(Date.now())){el.textContent='Gold market is closed (weekend or the daily 5–6 pm New York break), so zone alerts are paused.';return}
+  const q=newsQuiet(Date.now());if(q){el.innerHTML=`🔕 Paused for <b>${esc(q.type)}</b>: zone alerts are back 10 minutes after the release.`;return}
   const zs=zaZones();
   if(!zs.length){el.textContent=chData.length?'Watching, but there are no zones to watch right now.':'Zone alerts need the price feed; waiting for prices…';return}
   const b=zs.filter(z=>z.type==='Buy').length,s=zs.length-b,inz=lastPx!=null?zs.find(z=>lastPx>=z.from&&lastPx<=z.to):null;
@@ -1499,8 +1530,9 @@ function renderZoneList(){
 }
 function renderBias(){
   const el=$('#ch-bias');if(!el)return;
-  el.innerHTML=biasFresh()?`Latest bias: <b class="${lastBias.dir}">${lastBias.dir}</b> from your ${esc(lastBias.type)} ${lastBias.src==='AI analysis'?'AI analysis':'quick check'} (${lastBias.conf}% confidence). ${lastBias.dir} zones are highlighted and the others are faded.`
+  el.innerHTML=biasFresh()?`Latest bias: <b class="${lastBias.dir}">${lastBias.dir}</b> from your ${esc(lastBias.type)} ${lastBias.src==='AI analysis'?'AI analysis':'quick check'} (${lastBias.conf}% confidence). ${lastBias.dir} zones are highlighted and the others are faded. Ends ${new Date(biasUntil(lastBias)).toLocaleString('en-GB',{weekday:'short',hour:'2-digit',minute:'2-digit'})}. <button class="link" id="bias-clear">Clear now</button>`
     :`No recent bias. Run an analysis and the zones on its side will be highlighted here.`;
+  const c=$('#bias-clear');if(c)c.onclick=clearBias;
 }
 $('#zone-list').addEventListener('click',e=>{const b=e.target.closest('[data-zrm]');if(!b)return;userZones=userZones.filter(z=>z.id!==b.dataset.zrm);store.set('zones',userZones);refreshZones();toast('Zone deleted')});
 $('#z-auto').onchange=()=>{showAuto=$('#z-auto').checked;store.set('showAutoZones',showAuto);refreshZones()};
@@ -1569,6 +1601,8 @@ function feedDown(){
 function tickerHTML(){return'<div class="tk"><b class="num" id="tk-px">—</b><span class="chg num" id="tk-chg"></span><span class="ba num" id="tk-ba"></span></div>'}
 let tickFromSpot=false;
 function onTick(raw,t,fromSpot){
+  if(!goldOpen(Date.now())){ // gold is shut: tokenised gold still moves, but that isn't the gold price
+    const s=$('#tk-src');if(s)s.innerHTML='<span class="live-dot"></span>Gold market closed (weekend or daily break)';$('#ch-dot').classList.remove('on');return}
   if(!fromSpot&&spotGood())return; // spot is live: don't mix in the exchange's price
   tickFromSpot=!!fromSpot;
   lastTickAt=Date.now();rawLast=raw;
@@ -1602,7 +1636,7 @@ function updAsk(){
   if(!askLine)askLine=cs.createPriceLine({price:p,color:cssVar('--sell'),lineWidth:1,lineStyle:2,axisLabelVisible:true,title:'Ask'});else askLine.applyOptions({price:p});
 }
 const fmtLeft=r=>{const h=Math.floor(r/3600),m=Math.floor(r%3600/60),x=r%60;return h?`${h}:${pad(m)}:${pad(x)}`:`${pad(m)}:${pad(x)}`};
-setInterval(()=>{const a=$('#ch-age');if(!a)return;if(!lastTickAt){a.textContent='';return}
+setInterval(()=>{const a=$('#ch-age');if(!a)return;if(!goldOpen(Date.now())){a.textContent=' · gold market closed';a.style.color='';return}if(!lastTickAt){a.textContent='';return}
   const sec=Math.round((Date.now()-lastTickAt)/1000);
   a.textContent=` · price ${sec<2?'updated now':`updated ${sec}s ago`}${tickFromSpot?' (spot gold, every 3 s)':''}`;
   a.style.color=sec>30?'var(--sell)':''},1000);
@@ -1657,9 +1691,9 @@ function tgPayload(){
   const adj=offMode()==='broker'&&spotOff&&spotOff.src===SOURCES[srcIdx].name?Math.round((pxOffset.val-spotOff.val)*100)/100:0;
   const biasFor=e=>{const h=history.find(h=>h.evId===e.id&&(h.dir==='Buy'||h.dir==='Sell'));if(h)return{dir:h.dir};
     return lastBias&&lastBias.evId===e.id&&(lastBias.dir==='Buy'||lastBias.dir==='Sell')?{dir:lastBias.dir}:null};
-  return{newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false,pip,lead,which:za.which,tf:chTf,adj,
+  return{newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false,quietNews,pip,lead,which:za.which,tf:chTf,adj,
     events:events.filter(e=>e.at>now-3*36e5&&e.at<now+60*864e5&&(e.type!=='Claims'||showClaims)).map(e=>{const h=head(e);return{key:e.key||e.id,type:e.type,name:e.name||NAMES[e.type]||e.type,at:e.at,fc:h.fc||'',pv:h.pv||'',bias:biasFor(e)}}),
-    userZones,aiZones:aiFresh()?aiZones:null,
+    userZones,aiZones:aiFresh()?{...aiZones,until:biasUntil(aiZones)}:null,
     tfs:zoneTfs,autoZ:autoZ.map(z=>({type:z.type,from:z.from,to:z.to,grade:z.grade,tags:z.tags,t:z.t,tf:z.tf,tfs:z.tfs,atr:z.atr})),autoAt:autoZ.length?now:0};
 }
 async function tgSync(force){
@@ -1693,6 +1727,32 @@ function applyResults(res){
   if(ch){events.sort((a,b)=>a.at-b.at);store.set('events',events);renderCalKeep()}
   gradeHistory();
 }
+/* how the robot's zone alerts ended */
+async function loadZoneStats(){
+  const el=$('#zone-stats');if(!el)return;
+  if(!tgReady()){el.innerHTML='<p class="note">Set up the robot (Settings, Alerts when the app is closed) and it will record every zone alert and how it ended.</p>';return}
+  let tr;try{tr=(await tgCall('/stats')).trades||[]}catch(e){el.innerHTML=`<p class="note">Couldn't load the results: ${esc(e.message)}</p>`;return}
+  const done=tr.filter(t=>t.st==='win'||t.st==='loss'),open=tr.filter(t=>t.st==='open').length,exp=tr.filter(t=>t.st==='expired').length;
+  if(!tr.length){el.innerHTML='<p class="note">No zone alerts recorded yet. Results appear here after the robot sends its first zone alerts.</p>';return}
+  const row=(name,list)=>{if(!list.length)return'';const w=list.filter(t=>t.st==='win').length,R=list.reduce((a,t)=>a+t.r,0),wr=w/list.length*100,avg=R/list.length;
+    return`<tr><td>${esc(name)}</td><td class="num">${list.length}</td><td class="num">${wr.toFixed(0)}%</td><td class="num ${avg>=0?'up':'down'}">${avg>=0?'+':''}${avg.toFixed(2)}R</td><td class="num ${R>=0?'up':'down'}">${R>=0?'+':''}${R.toFixed(1)}R</td></tr>`};
+  const grp=(title,keyFn,order)=>{const m={};done.forEach(t=>{const k=keyFn(t);(m[k]=m[k]||[]).push(t)});
+    const ks=Object.keys(m).sort((a,b)=>order?order.indexOf(a)-order.indexOf(b):m[b].length-m[a].length);
+    return ks.length?`<tr class="grp"><td colspan="5">${title}</td></tr>`+ks.map(k=>row(k,m[k])).join(''):''};
+  el.innerHTML=(done.length?`<div style="overflow-x:auto"><table class="zstat"><thead><tr><th>Group</th><th>Trades</th><th>Win rate</th><th>Avg per trade</th><th>Total</th></tr></thead><tbody>
+    ${row('All zone alerts',done)}
+    ${grp('By timeframe',t=>t.tf,['M1','M5','M15','H1','H4','AI','Yours'])}
+    ${grp('By grade',t=>t.grade,['Strong','Good','Weak','AI','Yours'])}
+    ${grp('Inside a higher-timeframe zone?',t=>t.inside?'Yes, inside a higher zone':'No')}
+    ${grp('By side',t=>t.dir,['Buy','Sell'])}
+    </tbody></table></div>`:'<p class="note">No alert has reached its TP or SL yet.</p>')+
+    `<p class="note" style="margin-top:12px">${done.length} finished, ${open} still open, ${exp} expired. R = multiples of the risk: a loss is −1R, a win is the plan's reward (for example +2R). A few dozen trades are needed before these numbers mean much.</p>`+
+    `<ul class="zrec">${tr.slice(-8).reverse().map(t=>`<li><span><b class="${t.dir==='Buy'?'up':'down'}">${t.dir}</b> ${esc(t.tf)} · ${esc(t.grade)} · entry ${fmtPx(t.e)}</span><span class="num">${new Date(t.at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})} · ${t.st==='win'?`<b class="up">TP +${t.r}R</b>`:t.st==='loss'?'<b class="down">SL −1R</b>':t.st==='open'?'open':'expired'}</span></li>`).join('')}</ul>`;
+}
+$('#zs-refresh').onclick=()=>{$('#zone-stats').innerHTML='<p class="note">Loading…</p>';loadZoneStats()};
+document.addEventListener('click',e=>{const t=e.target.closest('[data-go="chart"]');if(t)setTimeout(loadZoneStats,400)});
+setInterval(()=>{if($('#v-chart').classList.contains('on'))loadZoneStats()},10*6e4);
+let biasWas=biasFresh()+'|'+aiFresh();setInterval(()=>{const n=biasFresh()+'|'+aiFresh();if(n!==biasWas){biasWas=n;try{renderZoneEls()}catch(e){}renderZoneList();renderBias();zaStatus()}},60e3); // a bias that just ended stops colouring the zones
 async function pullResults(){if(!tgReady())return;try{applyResults((await tgCall('/results')).results)}catch(e){}}
 setInterval(pullResults,10*6e4);
 
@@ -1858,6 +1918,8 @@ $('#ics-add').onclick=async()=>{
   toast(`${list.length} releases saved. Open the file to add them to your calendar.`);
 };
 $('#s-pip').value=String(pip);
+$('#s-quiet').checked=quietNews;
+$('#s-quiet').onchange=()=>{quietNews=$('#s-quiet').checked;store.set('quietNews',quietNews);zaStatus();try{tgSync(true)}catch(e){}toast(quietNews?'Zone alerts will pause around big news':'Zone alerts stay on during news')};
 $('#s-pip').onchange=()=>{pip=+$('#s-pip').value;store.set('pip',pip);renderCalKeep();try{tgSyncSoon()}catch(e){}toast(`Pips: $1 = ${Math.round(1/pip)} pips`)};
 $('#s-lead').onchange=()=>{lead=+$('#s-lead').value;store.set('lead',lead);events.forEach(e=>{if(e.at>Date.now())e.fired=false});saveEv();tick();toast(`Alerts now ring ${lead} minutes before each release`)};
 $('#s-restore').onclick=()=>{deleted.clear();store.set('deleted',[]);const n=syncEvents();saveEv();renderCalKeep();toast(n?`Brought back ${n} events`:'No deleted events to bring back')};
