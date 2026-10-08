@@ -332,6 +332,18 @@ footer{border-top:1px solid var(--line);padding:28px 0;color:var(--muted);font-s
 .zb.nolb .lb{display:none}
 .sub-h{font-family:var(--sans);font-size:15px;font-weight:700;margin:22px 0 10px}
 .za select{width:auto;flex:0 1 320px}
+.pa{display:block}
+.pa-top{display:flex;flex-direction:column;gap:2px;margin-bottom:10px}
+.pa-form{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+.pa-form input{width:auto;flex:1 1 150px;padding:9px 12px}
+.pa .pa-form select{flex:0 1 210px;padding:9px 12px}
+.pa-list{list-style:none;margin:10px 0 0;padding:0}
+.pa-list li{display:flex;align-items:center;gap:10px;padding:8px 2px;border-top:1px solid var(--line);font-size:14px}
+.pa-list li .pa-p{font-weight:700;min-width:84px}
+.pa-list li .pa-n{flex:1;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pa-list li.done{opacity:.5}
+#ch.picking{cursor:crosshair}
+.zr .zpa{margin-left:8px;font-size:13px}
 #za-status b.Buy{color:var(--buy)}#za-status b.Sell{color:var(--sell)}
 nav button svg{vertical-align:-3px}
 @media (max-width:640px){nav .nl{display:none}}
@@ -522,8 +534,20 @@ b.up{color:var(--buy)}b.down{color:var(--sell)}
         <label class="sw"><input type="checkbox" id="za-sound"> Sound</label>
       </div>
       <p class="note" id="za-status" style="margin:0 0 14px"></p>
+      <div class="za pa" id="pa-box">
+        <div class="pa-top"><span class="za-main" style="font-weight:600">🔔 Price alerts</span><span class="muted" style="font-size:13px">Rings once when price reaches your level (Bid, as on the chart). With the robot set up it works with the app closed too.</span></div>
+        <div class="pa-form">
+          <input id="pa-px" inputmode="decimal" placeholder="Price, e.g. 4150.00" aria-label="Alert price">
+          <input id="pa-note" maxlength="40" placeholder="Note (optional), e.g. TP sell" aria-label="Note">
+          <select id="pa-warn" aria-label="Early warning"><option value="0">No early warning</option><option value="0.5">Also warn $0.50 before</option><option value="1">Also warn $1 before</option><option value="2">Also warn $2 before</option><option value="5">Also warn $5 before</option></select>
+          <label class="sw"><input type="checkbox" id="pa-rep"> Repeat</label>
+          <button class="btn small ghost" id="pa-pick" type="button">Pick on chart</button>
+          <button class="btn small gold" id="pa-add" type="button">Add alert</button>
+        </div>
+        <ul class="pa-list" id="pa-list"></ul>
+      </div>
       <p class="note" id="tv-note" style="margin-bottom:12px" hidden>The live chart comes straight from TradingView, so the app can't draw on it. Use these zones as levels, or draw them yourself with TradingView's rectangle tool. Switch to <b>Zones chart</b> to see them drawn automatically with the Ask line and bar countdown.</p>
-      <p class="note" style="margin-bottom:16px">Auto zones combine order blocks (OB), fair value gaps (FVG), liquidity swings, the previous day's high and low (PDH/PDL), round $10 levels and today's VWAP. Broken or filled zones are removed and untested zones score higher. Each zone is labelled with the timeframe it comes from (M5, H1…); a zone sitting inside a higher-timeframe zone is marked "inside H1" and scores higher. The best two on each side are shown for every timeframe you pick. Each zone has a scalp plan: enter at the zone edge, stop just beyond it, target the next opposite zone or 2R. AI zones come from your latest AI analysis. Zones against your latest bias are faded.</p>
+      <p class="note" style="margin-bottom:16px">Auto zones combine order blocks (OB), fair value gaps (FVG), liquidity swings, the previous day's high and low (PDH/PDL), round $10 levels and today's VWAP. Broken or filled zones are removed and untested zones score higher. Each zone is labelled with the timeframe it comes from (M5, H1…); a zone sitting inside a higher-timeframe zone is marked "inside H1" and scores higher. The best two on each side are shown for every timeframe you pick. Each zone has a scalp plan: enter at the zone edge, stop beyond it (0.3 ATR plus your broker's spread, so a spread spike doesn't stop you out early), target the next opposite zone or 2R. AI zones come from your latest AI analysis. Zones against your latest bias are faded.</p>
       <ul class="zones" id="zone-list"></ul>
     </div>
 
@@ -1156,7 +1180,7 @@ async function fetchCB(tf,n,signal){
   return j.slice(-n).map(c=>c.map((v,i)=>i?String(v):v));
 }
 const MYT=8*3600;
-const fmtPx=n=>Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtPx=n=>{n=Number(n);if(!isFinite(n))return String(n);const [i,d]=Math.abs(n).toFixed(2).split('.');return(n<0&&+(i+d)?'-':'')+i.replace(/\B(?=(\d{3})+(?!\d))/g,',')+'.'+d};
 let ch=null,cs=null,chTf=store.get('chTf2','5m'),chData=[],srcIdx=0,chPoll=0,chLoop=0,chLoadedAt=0,lastPx=null,lastPxAt=0,rawLast=null;
 let pxOffset=store.get('pxOffset',null); // {src,val}: shift so the chart matches the broker
 let userZones=store.get('zones',[]),aiZones=store.get('aiZones',null),lastBias=store.get('lastBias',null),showAuto=store.get('showAutoZones',true),autoZ=[],zoneEls=[];
@@ -1259,7 +1283,7 @@ async function openChart(){
     if(!ch){chMsg('Loading prices…');await loadLib();
       ch=LightweightCharts.createChart($('#ch'),{autoSize:true,crosshair:{mode:0},timeScale:{timeVisible:true,secondsVisible:false,rightOffset:6},
         localization:{locale:'en-US',priceFormatter:p=>fmtPx(p)},handleScale:{axisPressedMouseMove:true}});
-      cs=ch.addCandlestickSeries({title:'Bid',priceFormat:{type:'price',precision:2,minMove:.01}});askLine=null;chartColors()}
+      cs=ch.addCandlestickSeries({title:'Bid',priceFormat:{type:'price',precision:2,minMove:.01}});askLine=null;paLines=[];chartColors()}
     if(!chData.length||Date.now()-chLoadedAt>10*6e4)await loadChart();
     else drawData(); // data came in while the Live chart was showing
   }catch(e){chMsg(`Couldn't load the chart (${esc(e.message)}). Check your connection; some networks block Binance.<button class="btn small ghost" id="ch-retry">Try again</button>`);
@@ -1383,12 +1407,15 @@ function autoZones(d){
   return['Buy','Sell'].flatMap(dir=>out.filter(z=>z.type===dir).sort((x,y)=>y.score-x.score).slice(0,3));
 }
 /* scalp plan: enter at the zone edge, stop beyond it, target the next opposite zone (or 2R) */
+let PLAN_SPREAD=store.get('spread',0.2); // the broker spread, used in every SL/TP
+/* scalp plan. SL sits 0.3 ATR beyond the zone plus the broker spread (a sell is stopped on the Ask, and spreads widen in spikes);
+   a sell's TP is moved in by the spread because it is filled on the Ask too */
 function plan(z,zs){
-  const a=z.atr||zATR||1;
-  if(z.type==='Buy'){const e=z.to,sl=z.from-.3*a,r=e-sl;const opp=zs.filter(o=>o.type==='Sell'&&o.from>e).map(o=>o.from).sort((x,y)=>x-y)[0];
+  const a=z.atr||zATR||1,sp=+PLAN_SPREAD||0;
+  if(z.type==='Buy'){const e=z.to,sl=z.from-.3*a-sp,r=e-sl;const opp=zs.filter(o=>o.type==='Sell'&&o.from>e).map(o=>o.from).sort((x,y)=>x-y)[0];
     const tp=opp&&opp-e>=1.2*r?Math.min(opp,e+3*r):e+2*r;return{e,sl,tp,rr:(tp-e)/r}}
-  const e=z.from,sl=z.to+.3*a,r=sl-e;const opp=zs.filter(o=>o.type==='Buy'&&o.to<e).map(o=>o.to).sort((x,y)=>y-x)[0];
-  const tp=opp&&e-opp>=1.2*r?Math.max(opp,e-3*r):e-2*r;return{e,sl,tp,rr:(e-tp)/r}
+  const e=z.from,sl=z.to+.3*a+sp,r=sl-e;const opp=zs.filter(o=>o.type==='Buy'&&o.to<e).map(o=>o.to).sort((x,y)=>y-x)[0];
+  const tp=(opp&&e-opp>=1.2*r?Math.max(opp,e-3*r):e-2*r)+sp;return{e,sl,tp,rr:(e-tp)/r}
 }
 
 /* ---------- zones from several timeframes ----------
@@ -1454,10 +1481,55 @@ function beep(){
       g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.3,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+.18);o.connect(g).connect(actx.destination);o.start(t);o.stop(t+.2)})}catch(e){}
 }
 let zlAt=0;
-/* gold trades Sunday 6 pm to Friday 5 pm New York time, with a 1-hour break at 5 pm on weekdays */
-const fET=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',weekday:'short',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
-function goldOpen(ms){const p={};for(const x of fET.formatToParts(ms))p[x.type]=x.value;const t=(+p.hour)*60+(+p.minute),wd=p.weekday;
-  if(wd==='Sat')return false;if(wd==='Sun')return t>=18*60;if(wd==='Fri')return t<17*60;return t<17*60||t>=18*60}
+// Tokenised gold (PAXG) keeps trading 24/7, so its moves while gold is shut are ignored.
+/* gold (XAUUSD) trades Sunday 6 pm to Friday 5 pm New York time, with a 1-hour break at 5 pm on weekdays.
+   US holidays (CME metals): closed all day on New Year's Day, Good Friday and Christmas;
+   early close at 1:30 pm New York on the other US federal holidays, 1:45 pm the day after Thanksgiving and on Christmas Eve. */
+// New York time without Intl (Intl is slow on the free plan): daylight time runs from the 2nd Sunday of March to the 1st Sunday of November, 2 am local
+const DST={};
+function nyOffset(ms){const y=new Date(ms).getUTCFullYear();let d=DST[y];
+  if(!d){const sun=(mo,n)=>{const f=new Date(Date.UTC(y,mo,1)).getUTCDay();return 1+(7-f)%7+(n-1)*7};d=DST[y]=[Date.UTC(y,2,sun(2,2),7),Date.UTC(y,10,sun(10,1),6)]}
+  return ms>=d[0]&&ms<d[1]?-4:-5}
+const HOL={};
+function usHolidays(y){if(HOL[y])return HOL[y];const m={},H=HOL[y]=m;
+  const key=(mo,da)=>{const t=new Date(Date.UTC(y,mo-1,da));return t.toISOString().slice(0,10)};
+  const nth=(mo,wd,n)=>1+(wd-new Date(Date.UTC(y,mo-1,1)).getUTCDay()+7)%7+(n-1)*7;
+  const last=(mo,wd)=>{const L=new Date(Date.UTC(y,mo,0));return L.getUTCDate()-((L.getUTCDay()-wd+7)%7)};
+  const obs=(mo,da)=>{const w=new Date(Date.UTC(y,mo-1,da)).getUTCDay();return key(mo,da+(w===6?-1:w===0?1:0))};
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,
+    i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,q=Math.floor((a+11*h+22*l)/451),em=Math.floor((h+l-7*q+114)/31),ed=(h+l-7*q+114)%31+1;
+  const add=(k2,v,name)=>{m[k2]={close:v,name}};
+  if(new Date(Date.UTC(y,0,1)).getUTCDay()!==6)add(obs(1,1),0,"New Year's Day");
+  add(key(1,nth(1,1,3)),810,'Martin Luther King Day');
+  add(key(2,nth(2,1,3)),810,"Presidents' Day");
+  add(key(em,ed-2),0,'Good Friday');
+  add(key(5,last(5,1)),810,'Memorial Day');
+  add(obs(6,19),810,'Juneteenth');
+  add(obs(7,4),810,'Independence Day');
+  add(key(9,nth(9,1,1)),810,'Labor Day');
+  const tg=nth(11,4,4);add(key(11,tg),810,'Thanksgiving');add(key(11,tg+1),825,'Day after Thanksgiving');
+  const xm=obs(12,25);add(xm,0,'Christmas');
+  const ce=key(12,24),cw=new Date(Date.UTC(y,11,24)).getUTCDay();if(ce!==xm&&cw>0&&cw<6)add(ce,825,'Christmas Eve');
+  return H}
+function holidayOn(dateKey){return usHolidays(+dateKey.slice(0,4))[dateKey]||null}
+function etParts(ms){const d=new Date(ms+nyOffset(ms)*36e5);
+  return{t:d.getUTCHours()*60+d.getUTCMinutes(),wd:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getUTCDay()],key:d.toISOString().slice(0,10)}}
+function goldOpenCalc(ms){const{t,wd,key}=etParts(ms);
+  if(t>=17*60&&t<18*60)return false; // daily break
+  if(t>=18*60){ // evening session belongs to the next day
+    if(wd==='Fri'||wd==='Sat')return false;
+    const n=new Date(Date.UTC(+key.slice(0,4),+key.slice(5,7)-1,+key.slice(8,10)+1)).toISOString().slice(0,10),h=holidayOn(n);
+    return !(h&&h.close===0)}
+  if(wd==='Sat'||wd==='Sun')return false;
+  const h=holidayOn(key);if(h&&(h.close===0||t>=h.close))return false;
+  return true}
+// every opening and closing time falls on a quarter hour, so the answer is cached per 15 minutes (Intl is slow)
+const GO=new Map();
+function goldOpen(ms){const k=Math.floor(ms/9e5);let v=GO.get(k);if(v===undefined){v=goldOpenCalc(k*9e5);if(GO.size>20000)GO.clear();GO.set(k,v)}return v}
+function closedWhy(ms){const{t,key,wd}=etParts(ms);let h=holidayOn(key);
+  if(t>=18*60)h=holidayOn(new Date(Date.parse(key+'T12:00:00Z')+864e5).toISOString().slice(0,10));
+  if(h&&wd!=='Sat'&&wd!=='Sun'&&!(t>=17*60&&t<18*60))return'US holiday: '+h.name;
+  return wd==='Sat'||wd==='Sun'||wd==='Fri'&&t>=17*60?'weekend':'daily 5–6 pm New York break'}
 const QUIET_TYPES=new Set(['NFP','CPI','PPI','PCE','FOMC','GDP','Retail Sales','ISM PMI','ISM Services','JOLTS','Fed Speech','FOMC Minutes']);
 let quietNews=store.get('quietNews',true);
 function newsQuiet(ms){if(!quietNews)return null;return events.find(e=>QUIET_TYPES.has(e.type)&&ms-e.at>=-5*6e4&&ms-e.at<=10*6e4)||null}
@@ -1484,7 +1556,7 @@ function checkZones(px){
 function zaStatus(){
   const el=$('#za-status');if(!el)return;
   if(!za.on){el.textContent='Zone alerts are off.';return}
-  if(!goldOpen(Date.now())){el.textContent='Gold market is closed (weekend or the daily 5–6 pm New York break), so zone alerts are paused.';return}
+  if(!goldOpen(Date.now())){el.textContent=`Gold market is closed (${closedWhy(Date.now())}), so zone alerts are paused.`;return}
   const q=newsQuiet(Date.now());if(q){el.innerHTML=`🔕 Paused for <b>${esc(q.type)}</b>: zone alerts are back 10 minutes after the release.`;return}
   const zs=zaZones();
   if(!zs.length){el.textContent=chData.length?'Watching, but there are no zones to watch right now.':'Zone alerts need the price feed; waiting for prices…';return}
@@ -1525,7 +1597,7 @@ function renderZoneList(){
   $('#zone-list').innerHTML=zs.length?zs.map(z=>{
     const dist=lastPx==null?'':z.from>lastPx?`${fmtPx(z.from-lastPx)} above`:z.to<lastPx?`${fmtPx(lastPx-z.to)} below`:'Price is inside';
     const pl=plan(z,all);
-    return`<li class="${isDim(z)?'dim':''}"><span class="zt ${z.type}">${z.type}${z.src==='auto'&&z.tfs?`<small class="ztf">${z.tfs[0]}</small>`:''}</span><span class="zr num">${fmtPx(z.from)} – ${fmtPx(z.to)}<small>${srcLabel(z)}</small><small class="pl">Entry ${fmtPx(pl.e)}, SL ${fmtPx(pl.sl)}, TP ${fmtPx(pl.tp)} (${pl.rr.toFixed(1)}R)</small></span><span class="zd num">${dist}</span>${z.src==='you'?`<button class="icon" aria-label="Delete zone" data-zrm="${z.id}">✕</button>`:'<span></span>'}</li>`}).join('')
+    return`<li class="${isDim(z)?'dim':''}"><span class="zt ${z.type}">${z.type}${z.src==='auto'&&z.tfs?`<small class="ztf">${z.tfs[0]}</small>`:''}</span><span class="zr num">${fmtPx(z.from)} – ${fmtPx(z.to)}<small>${srcLabel(z)}</small><small class="pl">Entry ${fmtPx(pl.e)}, SL ${fmtPx(pl.sl)}, TP ${fmtPx(pl.tp)} (${pl.rr.toFixed(1)}R)${lastPx!=null&&lastPx>Math.min(pl.tp,pl.sl)&&lastPx<Math.max(pl.tp,pl.sl)?` <button class="link zpa" data-zpa="${z.type}|${pl.tp.toFixed(2)}|${pl.sl.toFixed(2)}">🔔 Alert TP/SL</button>`:''}</small></span><span class="zd num">${dist}</span>${z.src==='you'?`<button class="icon" aria-label="Delete zone" data-zrm="${z.id}">✕</button>`:'<span></span>'}</li>`}).join('')
     :'<li class="empty">No zones yet. Turn on auto zones, run an AI analysis with a price, or add your own below.</li>';
 }
 function renderBias(){
@@ -1534,7 +1606,8 @@ function renderBias(){
     :`No recent bias. Run an analysis and the zones on its side will be highlighted here.`;
   const c=$('#bias-clear');if(c)c.onclick=clearBias;
 }
-$('#zone-list').addEventListener('click',e=>{const b=e.target.closest('[data-zrm]');if(!b)return;userZones=userZones.filter(z=>z.id!==b.dataset.zrm);store.set('zones',userZones);refreshZones();toast('Zone deleted')});
+$('#zone-list').addEventListener('click',e=>{const a=e.target.closest('[data-zpa]');if(a){const[t,tp,sl]=a.dataset.zpa.split('|');const up=t==='Buy';paAdd(+tp,`TP ${t.toLowerCase()}`,0,false,true,up?'up':'down');paAdd(+sl,`SL ${t.toLowerCase()}`,0,false,true,up?'down':'up');paChanged();toast(`Alerts set: TP ${fmtPx(+tp)}, SL ${fmtPx(+sl)}`);return}
+  const b=e.target.closest('[data-zrm]');if(!b)return;userZones=userZones.filter(z=>z.id!==b.dataset.zrm);store.set('zones',userZones);refreshZones();toast('Zone deleted')});
 $('#z-auto').onchange=()=>{showAuto=$('#z-auto').checked;store.set('showAutoZones',showAuto);refreshZones()};
 $('#z-add').onclick=()=>{
   const a=parseNum($('#z-from').value),b=parseNum($('#z-to').value);
@@ -1602,7 +1675,7 @@ function tickerHTML(){return'<div class="tk"><b class="num" id="tk-px">—</b><s
 let tickFromSpot=false;
 function onTick(raw,t,fromSpot){
   if(!goldOpen(Date.now())){ // gold is shut: tokenised gold still moves, but that isn't the gold price
-    const s=$('#tk-src');if(s)s.innerHTML='<span class="live-dot"></span>Gold market closed (weekend or daily break)';$('#ch-dot').classList.remove('on');return}
+    const s=$('#tk-src');if(s)s.innerHTML=`<span class="live-dot"></span>Gold market closed (${closedWhy(Date.now())})`;$('#ch-dot').classList.remove('on');return}
   if(!fromSpot&&spotGood())return; // spot is live: don't mix in the exchange's price
   tickFromSpot=!!fromSpot;
   lastTickAt=Date.now();rawLast=raw;
@@ -1628,9 +1701,59 @@ function onTick(raw,t,fromSpot){
     if(chData.length&&chData[chData.length-1].time===b.time)chData[chData.length-1]=b;else chData.push(b);
     setPrice();updAsk();if(nb)refreshZones();
   }
-  checkZones(px);
+  checkZones(px);paCheck(px);
 }
+/* ---------- price alerts ----------
+   Each alert rings when price reaches its level (direction is set from where price was when you added it).
+   The robot checks them every 3 seconds with the app closed; the app checks on every tick while it's open. */
+let pxAlerts=store.get('pxAlerts',[]),paLines=[],paPicking=false;
+const PA_REARM=3; // a repeating alert re-arms once price has moved $3 away
+function paAdd(px,note,warn,repeat,quiet,dir){
+  if(!(px>0))return toast('Enter a price');
+  const cur=lastPx;if(cur==null)return toast('Waiting for the live price…');
+  if(Math.abs(px-cur)<0.01)return toast('Price is already there');
+  pxAlerts.push({id:uid(),px:+px.toFixed(2),dir:dir||(px>cur?'up':'down'),note:(note||'').slice(0,40),warn:+warn||0,repeat:!!repeat,at:Date.now(),armed:true,warned:false});
+  if(!quiet)paChanged();
+}
+function paChanged(){store.set('pxAlerts',pxAlerts);paRender();paDraw();try{tgSync(true)}catch(e){}}
+function paRender(){const el=$('#pa-list');if(!el)return;
+  el.innerHTML=pxAlerts.length?pxAlerts.slice().sort((a,b)=>b.px-a.px).map(a=>`<li class="${a.armed?'':'done'}"><span class="pa-p num">${a.dir==='up'?'▲':'▼'} ${fmtPx(a.px)}</span><span class="pa-n">${esc(a.note||(a.dir==='up'?'rises to':'falls to'))}${a.warn?` · warn $${a.warn} before`:''}${a.repeat?' · repeats':''}${lastPx!=null?` · ${fmtPx(Math.abs(a.px-lastPx))} away`:''}</span><button class="icon" aria-label="Delete alert" data-parm="${a.id}">✕</button></li>`).join('')
+    :'<li class="muted" style="border:0;padding-left:0">No price alerts. Type a price, or press Pick on chart and tap a level.</li>'}
+function paDraw(){if(!cs)return;paLines.forEach(l=>{try{cs.removePriceLine(l)}catch(e){}});
+  paLines=pxAlerts.filter(a=>a.armed).map(a=>cs.createPriceLine({price:a.px,color:cssVar('--gold'),lineWidth:1,lineStyle:1,axisLabelVisible:true,title:'🔔 '+(a.note||'Alert')}))}
+function paCheck(px){if(!pxAlerts.length||px==null||!goldOpen(Date.now()))return;let ch=false,gone=[];
+  const robot=tgReady()&&tgc.linked; // the robot sends the phone notification; the app only shows it on screen
+  for(const a of pxAlerts){
+    if(!a.armed){if(a.repeat&&(a.dir==='up'?px<=a.px-Math.max(PA_REARM,a.warn+1):px>=a.px+Math.max(PA_REARM,a.warn+1))){a.armed=true;a.warned=false;ch=true}continue}
+    const hit=a.dir==='up'?px>=a.px:px<=a.px;
+    if(hit){const t=`🔔 XAUUSD reached ${fmtPx(a.px)}`,b=`${a.note?a.note+'. ':''}Price ${fmtPx(px)}.`;
+      if(robot){toast(`${t} — ${b}`)}else notify(t,b,'pa-'+a.id);if(za.sound)beep();
+      if(a.repeat){a.armed=false}else gone.push(a.id);ch=true}
+    else if(a.warn&&!a.warned&&(a.dir==='up'?px>=a.px-a.warn:px<=a.px+a.warn)){a.warned=true;ch=true;
+      const t=`⏳ XAUUSD $${a.warn} from ${fmtPx(a.px)}`,b=`${a.note?a.note+'. ':''}Price ${fmtPx(px)}.`;if(robot)toast(`${t} — ${b}`);else notify(t,b,'paw-'+a.id)}}
+  if(gone.length)pxAlerts=pxAlerts.filter(a=>!gone.includes(a.id));
+  if(ch){store.set('pxAlerts',pxAlerts);paRender();paDraw();if(gone.length)try{tgSync(true)}catch(e){}}
+  else if(Date.now()-(paCheck.r||0)>2000){paCheck.r=Date.now();paRender()}}
+// alerts the robot already rang are removed here too
+async function paPull(){if(!tgReady()||!pxAlerts.length)return;try{const j=await tgCall('/alerts');const done=j.done||[],rep=j.fired||{};let ch=false;
+  if(done.length){const n=pxAlerts.length;pxAlerts=pxAlerts.filter(a=>!done.includes(a.id));ch=n!==pxAlerts.length}
+  for(const a of pxAlerts)if(rep[a.id]&&a.armed&&rep[a.id]>(a.firedAt||0)){a.armed=false;a.firedAt=rep[a.id];ch=true}
+  if(ch){store.set('pxAlerts',pxAlerts);paRender();paDraw()}}catch(e){}}
+setInterval(()=>{if(!document.hidden)paPull()},6e4);document.addEventListener('visibilitychange',()=>{if(!document.hidden)paPull()});
+$('#pa-add').onclick=()=>{const v=parseNum($('#pa-px').value);paAdd(v,$('#pa-note').value.trim(),$('#pa-warn').value,$('#pa-rep').checked);
+  if(v>0&&lastPx!=null){$('#pa-px').value='';$('#pa-note').value='';toast(`Alert set at ${fmtPx(v)}`)}};
+$('#pa-px').onkeydown=$('#pa-note').onkeydown=e=>{if(e.key==='Enter')$('#pa-add').click()};
+$('#pa-list').addEventListener('click',e=>{const b=e.target.closest('[data-parm]');if(!b)return;pxAlerts=pxAlerts.filter(a=>a.id!==b.dataset.parm);paChanged();toast('Alert deleted')});
+$('#pa-pick').onclick=()=>{if(!cs||chMode!=='zones'){toast('Switch to Zones chart to pick a level');return}
+  paPicking=!paPicking;$('#ch').classList.toggle('picking',paPicking);$('#pa-pick').setAttribute('aria-pressed',paPicking);
+  if(paPicking){toast('Tap the chart at the price you want');$('#ch').scrollIntoView({block:'center',behavior:'smooth'})}};
+function paHookChart(){if(!ch||ch._paHooked)return;ch._paHooked=true;
+  ch.subscribeClick(p=>{if(!paPicking||!p||!p.point)return;const v=cs.coordinateToPrice(p.point.y);if(v==null)return;
+    paPicking=false;$('#ch').classList.remove('picking');$('#pa-pick').setAttribute('aria-pressed','false');
+    $('#pa-px').value=v.toFixed(2);$('#pa-px').scrollIntoView({block:'center',behavior:'smooth'});$('#pa-note').focus({preventScroll:true});toast(`Picked ${fmtPx(v)}: add a note if you like, then press Add alert`)})}
+paRender();
 function updAsk(){
+  paHookChart();if(cs&&paLines.length!==pxAlerts.filter(a=>a.armed).length)paDraw();
   if(!cs||lastPx==null)return;const p=lastPx+spread;
   if(!spread){if(askLine){cs.removePriceLine(askLine);askLine=null}return}
   if(!askLine)askLine=cs.createPriceLine({price:p,color:cssVar('--sell'),lineWidth:1,lineStyle:2,axisLabelVisible:true,title:'Ask'});else askLine.applyOptions({price:p});
@@ -1649,7 +1772,7 @@ function drawCountdown(){
   cd.style.display='block';cd.style.top=(y+(clash?27:10))+'px';cd.style.width=w+'px';
 }
 $('#z-spread').value=spread?String(spread):'';
-$('#z-spread').onchange=()=>{const v=parseNum($('#z-spread').value);spread=v!==null&&v>=0&&v<20?v:0;store.set('spread',spread);$('#z-spread').value=spread?String(spread):'';updAsk();if(lastPx!=null&&$('#tk-ba'))$('#tk-ba').innerHTML=`Bid <b>${fmtPx(lastPx)}</b>&nbsp;&nbsp;Ask <b>${fmtPx(lastPx+spread)}</b>`;toast(spread?`Ask line set ${spread.toFixed(2)} above Bid`:'Ask line hidden')};
+$('#z-spread').onchange=()=>{const v=parseNum($('#z-spread').value);spread=v!==null&&v>=0&&v<20?v:0;PLAN_SPREAD=spread;store.set('spread',spread);try{renderZoneList();zaStatus();tgSyncSoon()}catch(e){}$('#z-spread').value=spread?String(spread):'';updAsk();if(lastPx!=null&&$('#tk-ba'))$('#tk-ba').innerHTML=`Bid <b>${fmtPx(lastPx)}</b>&nbsp;&nbsp;Ask <b>${fmtPx(lastPx+spread)}</b>`;toast(spread?`Ask line set ${spread.toFixed(2)} above Bid`:'Ask line hidden')};
 
 /* colour theme */
 const NAMES_T={onyx:'Onyx',navy:'Midnight navy',plum:'Royal plum',espresso:'Espresso',emerald:'Emerald',wine:'Bordeaux',ivory:'Ivory'};
@@ -1691,8 +1814,9 @@ function tgPayload(){
   const adj=offMode()==='broker'&&spotOff&&spotOff.src===SOURCES[srcIdx].name?Math.round((pxOffset.val-spotOff.val)*100)/100:0;
   const biasFor=e=>{const h=history.find(h=>h.evId===e.id&&(h.dir==='Buy'||h.dir==='Sell'));if(h)return{dir:h.dir};
     return lastBias&&lastBias.evId===e.id&&(lastBias.dir==='Buy'||lastBias.dir==='Sell')?{dir:lastBias.dir}:null};
-  return{newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false,quietNews,pip,lead,which:za.which,tf:chTf,adj,
+  return{newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false,quietNews,pip,spread,lead,which:za.which,tf:chTf,adj,
     events:events.filter(e=>e.at>now-3*36e5&&e.at<now+60*864e5&&(e.type!=='Claims'||showClaims)).map(e=>{const h=head(e);return{key:e.key||e.id,type:e.type,name:e.name||NAMES[e.type]||e.type,at:e.at,fc:h.fc||'',pv:h.pv||'',bias:biasFor(e)}}),
+    pxAlerts:pxAlerts.map(a=>({id:a.id,px:a.px,dir:a.dir,note:a.note,warn:a.warn,repeat:a.repeat})),
     userZones,aiZones:aiFresh()?{...aiZones,until:biasUntil(aiZones)}:null,
     tfs:zoneTfs,autoZ:autoZ.map(z=>({type:z.type,from:z.from,to:z.to,grade:z.grade,tags:z.tags,t:z.t,tf:z.tf,tfs:z.tfs,atr:z.atr})),autoAt:autoZ.length?now:0};
 }
@@ -1927,7 +2051,7 @@ $('#s-restore').onclick=()=>{deleted.clear();store.set('deleted',[]);const n=syn
 /* settings: backup and restore (API key is never included) */
 $('#s-export').onclick=()=>{
   const data={app:'gold-abyss-x79',version:2,exported:new Date().toISOString(),events,history,deleted:[...deleted],
-    zones:userZones,settings:{theme:store.get('theme','onyx'),gmodel:store.get('gmodel',''),lead,showClaims,hidePast,pxOffset,pip,spread,zoneTfs,zoneAlerts:za,chTf,chMode,tvSym}};
+    zones:userZones,settings:{theme:store.get('theme','onyx'),gmodel:store.get('gmodel',''),lead,showClaims,hidePast,pxOffset,pip,spread,zoneTfs,zoneAlerts:za,chTf,chMode,tvSym,pxAlerts}};
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,1)],{type:'application/json'}));
   a.download=`gold-abyss-backup-${new Date(Date.now()+8*36e5).toISOString().slice(0,10)}.json`;document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);
   toast('Backup downloaded');
@@ -1948,7 +2072,8 @@ $('#s-file').onchange=async()=>{
     if(typeof st.hidePast==='boolean'){hidePast=st.hidePast;store.set('hidePast',hidePast)}
     if(st.gmodel)store.set('gmodel',st.gmodel);
     if(+st.pip>0){pip=+st.pip;store.set('pip',pip);$('#s-pip').value=String(pip)}
-    if(st.spread!==undefined&&+st.spread>=0){spread=+st.spread;store.set('spread',spread)}
+    if(Array.isArray(st.pxAlerts)){pxAlerts=st.pxAlerts;store.set('pxAlerts',pxAlerts);try{paRender();paDraw()}catch(e){}}
+    if(st.spread!==undefined&&+st.spread>=0){spread=+st.spread;PLAN_SPREAD=spread;store.set('spread',spread)}
     if(Array.isArray(st.zoneTfs)&&st.zoneTfs.length){zoneTfs=st.zoneTfs.filter(t=>TF_SEC[t]);store.set('zoneTfs',zoneTfs);syncZtf()}
     if(st.zoneAlerts){za=Object.assign(za,st.zoneAlerts);store.set('zoneAlerts',za);zaSync()}
     if(st.chTf&&TF_SEC[st.chTf]){chTf=st.chTf;store.set('chTf2',chTf)}
