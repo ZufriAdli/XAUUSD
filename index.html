@@ -614,6 +614,18 @@ b.up{color:var(--buy)}b.down{color:var(--sell)}
     </div>
 
     <div class="step">
+      <h3>Chart prices</h3>
+      <div class="form">
+        <label>Twelve Data API key <small>free at twelvedata.com; gives real XAU/USD spot candles, closer to your broker than tokenised gold</small>
+          <input id="s-td" autocomplete="off" spellcheck="false" placeholder="Paste your key"></label>
+        <label>Your broker's server time <small>sets where H4 and D1 candles and the previous day's high/low start</small>
+          <select id="s-btz"><option value="ny">GMT+2 / GMT+3, day starts at the New York close (most MT4/MT5 brokers)</option><option value="utc">GMT+0</option><option value="myt">GMT+8 (Malaysia time)</option></select></label>
+      </div>
+      <div class="row" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px"><button class="btn small ghost" id="s-td-test" type="button">Test the key</button></div>
+      <p class="set-note" id="s-td-status" style="margin-top:12px"></p>
+    </div>
+
+    <div class="step">
       <h3>Alerts when the app is closed</h3>
       <p class="set-note">A small free robot on Cloudflare checks the price every minute and alerts you before each news release and when price enters a Buy or Sell zone, on Telegram and as notifications from this app, even with the app closed. Set it up once (steps in the guide), then paste its address and password here.</p>
       <div class="form">
@@ -1169,6 +1181,7 @@ function renderRecord(){
    Prices: Binance gold perpetual (XAUUSDT); falls back to PAXG/USDT (tokenised gold) if that is unreachable. */
 const LWC_URL='https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js';
 const SOURCES=[
+  {name:'Twelve Data XAU/USD spot',td:true},
   {name:'Binance gold index price',url:(tf,n)=>`https://fapi.binance.com/fapi/v1/indexPriceKlines?pair=XAUUSDT&interval=${tf}&limit=${n}`},
   {name:'Binance XAUUSDT gold perpetual',url:(tf,n)=>`https://fapi.binance.com/fapi/v1/klines?symbol=XAUUSDT&interval=${tf}&limit=${n}`},
   {name:'Binance PAXG/USDT (tokenised gold)',url:(tf,n)=>`https://data-api.binance.vision/api/v3/klines?symbol=PAXGUSDT&interval=${tf}&limit=${n}`},
@@ -1197,6 +1210,7 @@ function reloadForNewSource(){if(chReloading)return;chReloading=true;loadChart()
 const offMode=()=>pxOffset&&pxOffset.src===SOURCES[srcIdx].name?'broker':spotOff&&spotOff.src===SOURCES[srcIdx].name&&Date.now()-spotOff.at<15*6e4?'spot':'none';
 const offNow=()=>{const m=offMode();return m==='broker'?pxOffset.val:m==='spot'?spotOff.val:0};
 async function syncSpot(){ // returns true if the shift changed enough to redraw
+  if(SOURCES[srcIdx].td){const had=spotOff&&spotOff.src===SOURCES[srcIdx].name;spotOff={src:SOURCES[srcIdx].name,val:0,at:Date.now()};return!had} // already spot XAU/USD: no shift, no extra request
   try{const [sp,j]=await Promise.all([fetch(SPOT_URL,{signal:AbortSignal.timeout?AbortSignal.timeout(5000):undefined}).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}),fetchKl('1m',1)]);
     const spot=+sp.price;if(!(spot>0))return false;const raw=+j[j.length-1][4],val=Math.round((spot-raw)*100)/100;
     if(Math.abs(val)/spot>.02)return false; // ignore nonsense (over 2% apart)
@@ -1217,13 +1231,14 @@ function loadLib(){if(window.LightweightCharts)return Promise.resolve();if(libP)
 /* every request has a time limit, so a network that silently blocks a source can't leave the chart stuck on "Loading" */
 async function fromSource(i,tf,n,ms){
   const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);
-  try{if(SOURCES[i].cb)return await fetchCB(tf,n,c.signal);
+  try{if(SOURCES[i].td)return await fetchTD(tf,n,c.signal);
+    if(SOURCES[i].cb)return await fetchCB(tf,n,c.signal);
     const r=await fetch(SOURCES[i].url(tf,n),{signal:c.signal});if(!r.ok)throw new Error('HTTP '+r.status);
     const j=await r.json();if(!Array.isArray(j)||!j.length)throw new Error('no data');return j}
   catch(e){throw e.name==='AbortError'?new Error('timed out'):e}finally{clearTimeout(t)}
 }
 let srcOkAt=0,srcGen=0,srcRace=null; // srcGen goes up whenever the price source changes, so data from two sources never gets mixed
-async function fetchKl(tf,n){
+async function fetchKlBase(tf,n){
   // stay on the source we already use (every timeframe must come from the same place, sources differ by a few dollars)
   if(srcRace){try{await srcRace}catch(e){}} // someone is already choosing a source: wait and use the same one
   if(srcOkAt){try{const j=await fromSource(srcIdx,tf,n,6000);srcOkAt=Date.now();return j}catch(e){}}
@@ -1247,6 +1262,43 @@ async function fetchKl(tf,n){
   });
   srcRace=race;race.catch(()=>{}).finally(()=>{if(srcRace===race)srcRace=null});
   return race;
+}
+/* H4 and D1 are built from 1-hour candles so they start when your broker's do (its server day starts at 00:00 server time) */
+let BROKER_TZ=store.get('brokerTz','ny');
+const AGG={'4h':4,'1d':24};
+async function fetchKl(tf,n){
+  if(!AGG[tf])return fetchKlBase(tf,n);
+  const k=AGG[tf],rows=(await fetchKlBase('1h',Math.min(1000,n*k+k))).filter(c=>goldOpen(+c[0]));
+  return aggBroker(rows,k).slice(-n);
+}
+const barOpen=(tf,k)=>AGG[tf]?true:goldOpen(+k[0]); // H4/D1 are built from open hours only
+function aggBroker(rows,k){const P=k*36e5,out=[];
+  for(const c of rows){const t=+c[0],s=bShift(t)*36e5,b=Math.floor((t+s)/P)*P-s,L=out[out.length-1];
+    if(L&&L[0]===b){L[2]=String(Math.max(+L[2],+c[2]));L[3]=String(Math.min(+L[3],+c[3]));L[4]=c[4];L[5]=String((+L[5]||0)+(+c[5]||0))}
+    else out.push([b,c[1],c[2],c[3],c[4],c[5]])}
+  return out}
+/* ---------- Twelve Data: real XAU/USD spot candles with a free key (800 requests a day, 8 a minute) ----------
+   Candles are cached so the app uses about 30 requests an hour; the rest of the day's allowance is left for the robot. */
+let tdKey=store.get('tdKey','');
+const TD_IV={'1m':'1min','5m':'5min','15m':'15min','1h':'1h'},TD_TTL={'1m':12e4,'5m':3e5,'15m':3e5,'1h':6e5},TD_APP_CAP=300;
+const tdCache={};let tdBlockUntil=0,tdErr='';
+function tdUse(){const d=new Date().toISOString().slice(0,10),u=store.get('tdUse',null);return u&&u.d===d?u:{d,n:0}}
+async function fetchTD(tf,n,signal,force){
+  if(!tdKey)throw new Error('no Twelve Data key');
+  if(!force&&Date.now()<tdBlockUntil)throw new Error(tdErr||'paused');
+  const iv=TD_IV[tf];if(!iv)throw new Error('timeframe not offered');
+  const c=tdCache[tf];
+  if(!force&&c&&n<=c.rows.length&&Date.now()-c.at<TD_TTL[tf])return c.rows.slice(-n);
+  const u=tdUse();if(!force&&u.n>=TD_APP_CAP)throw new Error("today's Twelve Data allowance for the app is used up");
+  u.n++;store.set('tdUse',u);
+  const size=c&&n<=c.rows.length?10:Math.min(5000,Math.max(n,10)); // with a cache, only the newest candles are fetched and merged in
+  const r=await fetch(`https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=${iv}&outputsize=${size}&timezone=UTC&order=asc&apikey=${encodeURIComponent(tdKey)}`,{signal});
+  const j=await r.json().catch(()=>({}));
+  if(j.status==='error'||!Array.isArray(j.values)||!j.values.length){const m=j.message||('HTTP '+r.status);tdErr=m;
+    tdBlockUntil=Date.now()+(/credit|limit|minute/i.test(m)?10*6e4:/plan|symbol|key|grow|upgrade/i.test(m)?6*36e5:6e4);throw new Error(m)}
+  tdErr='';const rows=j.values.map(v=>[Date.parse(v.datetime.replace(' ','T')+(v.datetime.length<=10?'T00:00:00Z':'Z')),v.open,v.high,v.low,v.close,'0']).filter(x=>x[0]>0).sort((a,b)=>a[0]-b[0]);
+  let all=rows;if(c&&size===10){const m=new Map(c.rows.map(x=>[x[0],x]));rows.forEach(x=>m.set(x[0],x));all=[...m.values()].sort((a,b)=>a[0]-b[0])}
+  tdCache[tf]={at:Date.now(),rows:all.slice(-5000)};return all.slice(-n);
 }
 const toBar=k=>{const o=offNow();return{time:Math.floor(k[0]/1000)+MYT,open:+k[1]+o,high:+k[2]+o,low:+k[3]+o,close:+k[4]+o,vol:+k[5]||0}};
 async function livePrice(){
@@ -1305,7 +1357,7 @@ function drawData(){
 async function loadChart(){
   if(cs)chMsg('Loading prices…');
   let j=await fetchKl(chTf,1000);if(pxOffset===null){const sp=syncSpot();if(!await Promise.race([sp.then(()=>true),new Promise(r=>setTimeout(()=>r(false),1500))]))sp.then(c=>{if(c)reapply()})} /* don't hold the chart for the spot price */
-  rawLast=+j[j.length-1][4];j=j.filter(k=>goldOpen(k[0]));if(!j.length)throw new Error('no candles while gold was open');
+  rawLast=+j[j.length-1][4];j=j.filter(k=>barOpen(chTf,k));if(!j.length)throw new Error('no candles while gold was open');
   chRaw=j;chGen=srcGen;chData=j.map(toBar);
   chLoadedAt=Date.now();
   if(cs){cs.setData(chData);updAsk();const n=chData.length;ch.timeScale().setVisibleLogicalRange({from:Math.max(0,n-160),to:n+8})}
@@ -1313,7 +1365,7 @@ async function loadChart(){
 }
 async function pollChart(){
   if(!$('#v-chart').classList.contains('on')||document.hidden||!chRaw.length)return;
-  try{let j=await fetchKl(chTf,2);let nb=false;j=j.filter(k=>goldOpen(k[0]));if(!j.length)return;
+  try{let j=await fetchKl(chTf,2);let nb=false;j=j.filter(k=>barOpen(chTf,k));if(!j.length)return;
     if(chGen!==srcGen){reloadForNewSource();return}
     j.forEach(k=>{const L=chRaw[chRaw.length-1];if(L&&L[0]===k[0])chRaw[chRaw.length-1]=k;else if(!L||k[0]>L[0]){chRaw.push(k);nb=true}});
     j.map(toBar).forEach(b=>{if(cs)cs.update(b);const L=chData[chData.length-1];if(L&&L.time===b.time)chData[chData.length-1]=b;else if(!L||b.time>L.time)chData.push(b)});
@@ -1368,8 +1420,8 @@ function autoZones(d){
     if(hi)add({dir:'Sell',kind:'Swing',from:d[i].high-.3*a,to:d[i].high,i,start:i+k+1,power:1});
     if(lo)add({dir:'Buy',kind:'Swing',from:d[i].low,to:d[i].low+.3*a,i,start:i+k+1,power:1});
   }
-  // 4. previous trading day high/low (day rolls at 6 am MYT, around the New York close)
-  const day=t=>Math.floor((t-6*3600)/86400),today=day(d[n-1].time);let t0=-1,H=-Infinity,L=Infinity,pc=0;
+  // 4. previous trading day high/low (the day starts when your broker's server day does; most brokers: the New York close)
+  const day=t=>{const ms=(t-8*3600)*1000;return Math.floor((ms+bShift(ms)*36e5)/864e5)},today=day(d[n-1].time);let t0=-1,H=-Infinity,L=Infinity,pc=0;
   for(let i=0;i<n;i++){const dy=day(d[i].time);if(t0<0&&dy===today)t0=i;if(dy===today-1){pc++;if(d[i].high>H)H=d[i].high;if(d[i].low<L)L=d[i].low}}
   if(pc>=10&&t0>0){
     add({dir:'Sell',kind:'PDH',from:H-.25*a,to:H+.1*a,i:t0,start:t0,power:1});
@@ -1451,14 +1503,15 @@ function allZones(){
 }
 const srcLabel=z=>z.src==='auto'?`${z.tfs?z.tfs[0]+' · ':''}${z.grade}: ${z.tags.join(' + ')}${z.fresh?', untested':''}`:z.src==='ai'?`AI, ${esc(aiZones.ev)}`:'Yours'+(z.note?`, ${esc(z.note)}`:'');
 const isDim=z=>biasFresh()&&z.type!==lastBias.dir;
-let zoneTfs=store.get('zoneTfs',['5m','15m','1h']);const mtfCache={};let mtfBusy=false,mtfAgain=false;
+let zoneTfs=store.get('zoneTfs',['5m','15m','1h']);const mtfCache={};
+function mtfReset(){for(const k in mtfCache)delete mtfCache[k];try{updateMTF(true)}catch(e){}}let mtfBusy=false,mtfAgain=false;
 async function updateMTF(force){
   if(mtfBusy){mtfAgain=true;return}mtfBusy=true;
   try{const byTf={},now=Date.now();
     for(const tf of zoneTfs){const c=mtfCache[tf],sec=TF_SEC[tf]||300;
       if(tf===chTf&&chData.length&&chGen===srcGen){const zs=autoZones(chData);zs.forEach(z=>z.atr=zATR);mtfCache[tf]={gen:srcGen,next:0,zones:zs};byTf[tf]=zs;continue} // the chart's own live candles
       if(!force&&c&&c.gen===srcGen&&now<c.next){byTf[tf]=c.zones;continue}
-      try{const j=(await fetchKl(tf,300)).filter(k=>goldOpen(k[0]));if(j.length<60)throw new Error('not enough candles');const bars=j.map(toBar),zs=autoZones(bars);zs.forEach(z=>z.atr=zATR);
+      try{const j=(await fetchKl(tf,300)).filter(k=>barOpen(tf,k));if(j.length<60)throw new Error('not enough candles');const bars=j.map(toBar),zs=autoZones(bars);zs.forEach(z=>z.atr=zATR);
         mtfCache[tf]={gen:srcGen,next:j[j.length-1][0]+sec*1000+5000,zones:zs};byTf[tf]=zs}
       catch(e){if(c)byTf[tf]=c.zones}}
     autoZ=mtfCombine(byTf);
@@ -1518,6 +1571,7 @@ function usHolidays(y){if(HOL[y])return HOL[y];const m={},H=HOL[y]=m;
   const ce=key(12,24),cw=new Date(Date.UTC(y,11,24)).getUTCDay();if(ce!==xm&&cw>0&&cw<6)add(ce,825,'Christmas Eve');
   return H}
 function holidayOn(dateKey){return usHolidays(+dateKey.slice(0,4))[dateKey]||null}
+function bShift(ms){return BROKER_TZ==='utc'?0:BROKER_TZ==='myt'?8:nyOffset(ms)+7} // broker server time vs UTC, in hours
 function etParts(ms){const d=new Date(ms+nyOffset(ms)*36e5);
   return{t:d.getUTCHours()*60+d.getUTCMinutes(),wd:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getUTCDay()],key:d.toISOString().slice(0,10)}}
 function goldOpenCalc(ms){const{t,wd,key}=etParts(ms);
@@ -1636,18 +1690,19 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){if(!za.on)
 const TF_SEC={'1m':60,'5m':300,'15m':900,'1h':3600,'4h':14400,'1d':86400};
 let ws=null,wsSrc=-1,wsOk=false,feedTimer=0,restTimer=0,spotTimer=0,feedFails=0,useTV=false,askLine=null,ref24=null,prevTk=null,lastTickAt=0;
 let spread=store.get('spread',0.2);
-const wsUrl=i=>SOURCES[i].cb?'wss://ws-feed.exchange.coinbase.com':i<=1?'wss://fstream.binance.com/ws/xauusdt@markPrice@1s':'wss://data-stream.binance.vision/ws/paxgusdt@miniTicker';
+const wsUrl=i=>SOURCES[i].td?null:SOURCES[i].cb?'wss://ws-feed.exchange.coinbase.com':/Binance (gold|XAUUSDT)/.test(SOURCES[i].name)?'wss://fstream.binance.com/ws/xauusdt@markPrice@1s':'wss://data-stream.binance.vision/ws/paxgusdt@miniTicker';
 function startFeed(){
   stopFeed();wsSrc=srcIdx;
-  try{ws=new WebSocket(wsUrl(wsSrc));
+  try{if(!wsUrl(wsSrc))throw 0; // Twelve Data has no free live feed: spot gold gives the live price
+    ws=new WebSocket(wsUrl(wsSrc));
     if(SOURCES[wsSrc].cb){const w=ws;ws.onopen=()=>{try{w.send(JSON.stringify({type:'subscribe',product_ids:['PAXG-USD'],channels:['ticker']}))}catch(_){}}}
     ws.onmessage=e=>{try{const m=JSON.parse(e.data);
-      const p=m.e==='markPriceUpdate'?+(wsSrc===0?m.i:m.p):m.e==='24hrMiniTicker'?+m.c:m.type==='ticker'?+m.price:NaN;
+      const p=m.e==='markPriceUpdate'?+(/index/.test(SOURCES[wsSrc].name)?m.i:m.p):m.e==='24hrMiniTicker'?+m.c:m.type==='ticker'?+m.price:NaN;
       if(p>0){if(wsSrc!==srcIdx){startFeed();return}wsOk=true;feedFails=0;onTick(p,m.E||Date.now())}}catch(_){}};
     ws.onclose=()=>{wsOk=false;ws=null;clearTimeout(feedTimer);if(!document.hidden)feedTimer=setTimeout(startFeed,5000)};
     ws.onerror=()=>{try{ws&&ws.close()}catch(_){}};
   }catch(e){}
-  restTimer=setInterval(()=>{if(!wsOk||Date.now()-lastTickAt>8000)restTick()},3000);
+  restTimer=SOURCES[wsSrc].td?setInterval(()=>{if(Date.now()-lastTickAt>2e4)restTick()},3e4):setInterval(()=>{if(!wsOk||Date.now()-lastTickAt>8000)restTick()},3000);
   spotPollT=setInterval(pollSpot,3000);
   spotTimer=setInterval(async()=>{if(pxOffset===null&&await syncSpot())reapply()},60e3);
   if(pxOffset===null)syncSpot().then(c=>{if(c)reapply()});
@@ -1744,7 +1799,7 @@ function paCheck(px){if(!pxAlerts.length||px==null||!goldOpen(Date.now()))return
   else if(Date.now()-(paCheck.r||0)>2000){paCheck.r=Date.now();paRender()}}
 // alerts the robot already rang are removed here too
 /* ---------- shared with your other devices through the robot ---------- */
-const sharedNow=()=>({pip,spread,quietNews,lead,which:za.which,tfs:zoneTfs,newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false});
+const sharedNow=()=>({tdKey,brokerTz:BROKER_TZ,pip,spread,quietNews,lead,which:za.which,tfs:zoneTfs,newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false});
 let setAt=store.get('setAt',0),lastShared=null;
 function sharedMark(){const j=JSON.stringify(sharedNow());if(lastShared===null){lastShared=store.get('lastShared',j);}if(j!==lastShared){lastShared=j;setAt=Date.now();store.set('setAt',setAt);store.set('lastShared',j)}}
 function applyShared(sh){if(!sh)return;let ch=false;
@@ -1756,6 +1811,8 @@ function applyShared(sh){if(!sh)return;let ch=false;
   if(Array.isArray(sh.userZones)){const nz=sh.userZones.filter(z=>!tomb[z.id]);if(JSON.stringify(nz)!==JSON.stringify(userZones)){userZones=nz;store.set('zones',userZones);ch=true;try{refreshZones()}catch(e){}}}
   if((sh.setAt||0)>setAt&&sh.settings){const t=sh.settings;
     if(+t.pip>0){pip=+t.pip;store.set('pip',pip);$('#s-pip').value=String(pip)}
+    if(typeof t.tdKey==='string'&&t.tdKey!==tdKey){tdKey=t.tdKey;store.set('tdKey',tdKey);$('#s-td').value=tdKey;srcOkAt=0;tdStatus()}
+    if(['ny','utc','myt'].includes(t.brokerTz)&&t.brokerTz!==BROKER_TZ){BROKER_TZ=t.brokerTz;store.set('brokerTz',BROKER_TZ);$('#s-btz').value=BROKER_TZ;mtfReset()}
     if(t.spread!=null&&+t.spread>=0){spread=PLAN_SPREAD=+t.spread;store.set('spread',spread);$('#z-spread').value=spread?String(spread):'';try{updAsk()}catch(e){}}
     if(typeof t.quietNews==='boolean'){quietNews=t.quietNews;store.set('quietNews',quietNews);$('#s-quiet').checked=quietNews}
     if([5,15,30,60].includes(+t.lead)){lead=+t.lead;store.set('lead',lead);$('#s-lead').value=String(lead)}
@@ -1851,7 +1908,7 @@ function tgPayload(){
   const adj=offMode()==='broker'&&spotOff&&spotOff.src===SOURCES[srcIdx].name?Math.round((pxOffset.val-spotOff.val)*100)/100:0;
   const biasFor=e=>{const h=history.find(h=>h.evId===e.id&&(h.dir==='Buy'||h.dir==='Sell'));if(h)return{dir:h.dir};
     return lastBias&&lastBias.evId===e.id&&(lastBias.dir==='Buy'||lastBias.dir==='Sell')?{dir:lastBias.dir}:null};
-  return{setAt,tomb,newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false,quietNews,pip,spread,lead,which:za.which,tf:chTf,adj,
+  return{setAt,tomb,tdKey,brokerTz:BROKER_TZ,newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false,quietNews,pip,spread,lead,which:za.which,tf:chTf,adj,
     events:events.filter(e=>e.at>now-3*36e5&&e.at<now+60*864e5&&(e.type!=='Claims'||showClaims)).map(e=>{const h=head(e);return{key:e.key||e.id,type:e.type,name:e.name||NAMES[e.type]||e.type,at:e.at,fc:h.fc||'',pv:h.pv||'',bias:biasFor(e)}}),
     pxAlerts:pxAlerts.map(a=>({id:a.id,px:a.px,dir:a.dir,note:a.note,warn:a.warn,repeat:a.repeat})),
     userZones,aiZones:aiFresh()?{...aiZones,until:biasUntil(aiZones)}:null,
@@ -1978,8 +2035,9 @@ async function robotHealth(){
     const ago=Math.round((Date.now()-r.at)/6e4),stale=ago>25;
     el.style.color=stale||r.err?'var(--sell)':'';
     el.innerHTML=stale?`⚠️ The robot last ran <b>${ago} minutes ago</b>. In Cloudflare, open the worker, then Settings, Trigger events, and make sure the Cron trigger runs every minute.`
-      :`✅ Robot working: last report ${ago<1?'just now':ago+' min ago'} (it reports every 10 minutes)${r.px?`, gold ${fmtPx(r.px)}${r.src?' from '+esc(r.src):''}`:''}${r.zones!=null?`, watching ${r.zones} zone${r.zones===1?'':'s'}`:''}. Phones: ${st.phones?st.phones.length:0}, Telegram: ${st.linked?'connected':'not connected'}.`+
+      :`✅ Robot working: last report ${ago<1?'just now':ago+' min ago'} (it reports every 10 minutes)${r.px?`, gold ${fmtPx(r.px)}${r.src?' from '+esc(r.src):''}`:''}${r.zones!=null?`, watching ${r.zones} zone${r.zones===1?'':'s'}`:''}${r.zsrc?` (zones from ${esc(r.zsrc==='Twelve Data'?'Twelve Data XAU/USD':r.zsrc+' PAXG')}${r.tdUsed?`, ${r.tdUsed} Twelve Data requests today`:''})`:''}. Phones: ${st.phones?st.phones.length:0}, Telegram: ${st.linked?'connected':'not connected'}.`+
         (r.err?`<br>Problem on its last run: ${esc(r.err)}`:'')+
+        (r.tdErr?`<br>Twelve Data refused your key: ${esc(r.tdErr)}. The robot uses PAXG candles instead.`:'')+
         (r.cron5===false?`<br>Tip: add a second Cron trigger <b>*/5 * * * *</b> in Cloudflare (worker, Settings, Trigger events). The zones are then worked out in their own run every 5 minutes, and the every-minute price check never skips a minute.`:'');
   }catch(e){el.style.color='var(--sell)';el.textContent="Couldn't reach the robot: "+(e.message==='Failed to fetch'?'check the address':e.message)}
 }
@@ -2082,6 +2140,14 @@ $('#ics-add').onclick=async()=>{
 };
 $('#s-pip').value=String(pip);
 $('#s-quiet').checked=quietNews;
+$('#s-td').value=tdKey;$('#s-btz').value=BROKER_TZ;
+function tdStatus(msg,bad){const el=$('#s-td-status');el.style.color=bad?'var(--sell)':'';el.textContent=msg||(tdKey?`Key saved. The chart uses Twelve Data XAU/USD when it answers (used ${tdUse().n} of the app's ${TD_APP_CAP} requests today).`:'No key: the chart uses Binance or tokenised gold (PAXG), which can differ a little from your broker.')}
+tdStatus();
+$('#s-td').onchange=()=>{tdKey=$('#s-td').value.trim();store.set('tdKey',tdKey);tdBlockUntil=0;for(const k in tdCache)delete tdCache[k];srcOkAt=0;tdStatus();try{tgSyncSoon()}catch(e){}if(cs)loadChart().catch(()=>{});mtfReset()};
+$('#s-td-test').onclick=async()=>{tdKey=$('#s-td').value.trim();store.set('tdKey',tdKey);if(!tdKey){tdStatus('Paste your key first.',true);return}tdStatus('Testing…');
+  try{const j=await fetchTD('1m',2,undefined,true);tdStatus(`✅ Works: XAU/USD ${fmtPx(+j[j.length-1][4])} from Twelve Data.`);srcOkAt=0;if(cs)loadChart().catch(()=>{});mtfReset();try{tgSync(true)}catch(e){}}
+  catch(e){tdStatus(`❌ ${e.message}${/plan|symbol|grow|upgrade/i.test(e.message)?' — your Twelve Data plan may not include XAU/USD; the chart keeps using the other sources.':''}`,true)}};
+$('#s-btz').onchange=()=>{BROKER_TZ=$('#s-btz').value;store.set('brokerTz',BROKER_TZ);try{tgSyncSoon()}catch(e){}mtfReset();if(cs&&AGG[chTf])loadChart().catch(()=>{});else refreshZones();toast('H4, D1 and the previous day high/low now follow your broker\'s day')};
 $('#s-quiet').onchange=()=>{quietNews=$('#s-quiet').checked;store.set('quietNews',quietNews);zaStatus();try{tgSync(true)}catch(e){}toast(quietNews?'Zone alerts will pause around big news':'Zone alerts stay on during news')};
 $('#s-pip').onchange=()=>{pip=+$('#s-pip').value;store.set('pip',pip);renderCalKeep();try{tgSyncSoon()}catch(e){}toast(`Pips: $1 = ${Math.round(1/pip)} pips`)};
 $('#s-lead').onchange=()=>{lead=+$('#s-lead').value;store.set('lead',lead);try{tgSyncSoon()}catch(e){}events.forEach(e=>{if(e.at>Date.now())e.fired=false});saveEv();tick();toast(`Alerts now ring ${lead} minutes before each release`)};
