@@ -1979,7 +1979,8 @@ async function robotHealth(){
     el.style.color=stale||r.err?'var(--sell)':'';
     el.innerHTML=stale?`⚠️ The robot last ran <b>${ago} minutes ago</b>. In Cloudflare, open the worker, then Settings, Trigger events, and make sure the Cron trigger runs every minute.`
       :`✅ Robot working: last report ${ago<1?'just now':ago+' min ago'} (it reports every 10 minutes)${r.px?`, gold ${fmtPx(r.px)}${r.src?' from '+esc(r.src):''}`:''}${r.zones!=null?`, watching ${r.zones} zone${r.zones===1?'':'s'}`:''}. Phones: ${st.phones?st.phones.length:0}, Telegram: ${st.linked?'connected':'not connected'}.`+
-        (r.err?`<br>Problem on its last run: ${esc(r.err)}`:'');
+        (r.err?`<br>Problem on its last run: ${esc(r.err)}`:'')+
+        (r.cron5===false?`<br>Tip: add a second Cron trigger <b>*/5 * * * *</b> in Cloudflare (worker, Settings, Trigger events). The zones are then worked out in their own run every 5 minutes, and the every-minute price check never skips a minute.`:'');
   }catch(e){el.style.color='var(--sell)';el.textContent="Couldn't reach the robot: "+(e.message==='Failed to fetch'?'check the address':e.message)}
 }
 $('#robot-check').onclick=()=>{$('#robot-health').textContent='Checking…';robotHealth()};
