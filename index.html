@@ -290,7 +290,20 @@ footer{border-top:1px solid var(--line);padding:28px 0;color:var(--muted);font-s
 .ch-price .up{color:var(--buy)}.ch-price .down{color:var(--sell)}
 .ch-src{font-size:13px;color:var(--muted)}
 .ch-wrap{position:relative;height:min(62vh,520px);min-height:320px;border-top:1px solid var(--hair);border-bottom:1px solid var(--line)}
-#ch,#ch-zones{position:absolute;inset:0}
+#ch,#ch-zones,#ch-sess{position:absolute;inset:0}
+#ch-sess{pointer-events:none;overflow:hidden;z-index:1}
+.ss{position:absolute;display:none;box-sizing:border-box;border:1px solid;border-radius:2px}
+.ss span{position:absolute;left:4px;top:-15px;font-size:10px;font-weight:700;white-space:nowrap;opacity:.9}
+.ss.asia{border-color:rgba(120,150,255,.55);background:rgba(120,150,255,.07);color:rgb(140,165,255)}
+.ss.ldn{border-color:rgba(80,200,170,.55);background:rgba(80,200,170,.06);color:rgb(90,205,175)}
+.ss.ny{border-color:rgba(240,170,80,.55);background:rgba(240,170,80,.06);color:rgb(240,175,90)}
+.kz{position:absolute;display:none;height:5px;border-radius:2px;opacity:.8}
+.kz.asia{background:rgb(120,150,255)}.kz.ldn{background:rgb(80,200,170)}.kz.ny{background:rgb(240,170,80)}
+.ch-opts{display:flex;flex-wrap:wrap;gap:8px 20px;margin:12px 0 0;font-size:14px}
+.trend{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:12px 0 0;font-size:14px}
+.trend .tf{display:inline-flex;gap:6px;align-items:center;padding:5px 10px;border:1px solid var(--line);border-radius:999px;font-weight:600}
+.trend .tf b{font-weight:800}.trend .up{color:var(--buy)}.trend .down{color:var(--sell)}.trend .side{color:var(--muted)}
+.trend .sum{color:var(--muted)}
 #ch-zones{pointer-events:none;overflow:hidden;z-index:2}
 .zb{position:absolute;left:0;box-sizing:border-box;border-top:1px dashed;border-bottom:1px dashed;display:none}
 .zb .lb{position:absolute;left:8px;font-size:11px;font-weight:700;white-space:nowrap;line-height:1.5}
@@ -522,10 +535,13 @@ b.up{color:var(--buy)}b.down{color:var(--sell)}
     </div>
     <div class="ch-wrap">
       <div id="ch"></div>
+      <div id="ch-sess" aria-hidden="true"></div>
       <div id="ch-zones" aria-hidden="true"></div>
       <div class="ch-msg" id="ch-msg" role="status">Loading prices…</div>
       <div id="ch-cd" aria-hidden="true"></div>
     </div>
+    <div class="ch-opts"><label class="sw"><input type="checkbox" id="o-sess"> Sessions and killzones</label><label class="sw"><input type="checkbox" id="o-lv"> PDH/PDL and Asia high/low</label></div>
+    <div class="trend" id="ch-trend" aria-live="polite"></div>
     <p class="ch-bias" id="ch-bias"></p>
 
     <div class="block" style="margin-top:40px">
@@ -632,6 +648,7 @@ b.up{color:var(--buy)}b.down{color:var(--sell)}
         <label class="sw za-main"><input type="checkbox" id="tg-news"> News alerts</label>
         <label class="sw za-main"><input type="checkbox" id="tg-zones"> Zone alerts</label>
         <label class="sw za-main"><input type="checkbox" id="tg-rep"> After-news report</label>
+        <label class="sw za-main"><input type="checkbox" id="tg-sweep"> Liquidity sweeps (PDH/PDL, Asia high/low)</label>
         <span class="muted" style="font-size:13px">Zone alerts use the timeframe and zone choice on the Chart page. The after-news report comes 15 minutes after each release: how many pips gold moved and whether your bias was right (your accuracy updates by itself).</span>
       </div>
       <h4 class="sub-h">Telegram</h4>
@@ -1216,7 +1233,7 @@ async function syncSpot(){ // returns true if the shift changed enough to redraw
 function reapply(){ // redraw with the current shift, keeping the view where it is
   if(chGen!==srcGen){reloadForNewSource();return}
   if(!cs||!chRaw.length)return;const r=ch.timeScale().getVisibleLogicalRange();
-  chData=chRaw.map(toBar);cs.setData(chData);if(r)ch.timeScale().setVisibleLogicalRange(r);setPrice();refreshZones();
+  chData=chRaw.map(toBar);cs.setData(chData);if(r)ch.timeScale().setVisibleLogicalRange(r);setPrice();refreshZones();lvDraw();$('#ch-sess')._key='';sessBuild();
 }
 
 let libP=null;
@@ -1311,7 +1328,7 @@ async function openChart(){
     if(!ch){chMsg('Loading prices…');await loadLib();
       ch=LightweightCharts.createChart($('#ch'),{autoSize:true,crosshair:{mode:0},timeScale:{timeVisible:true,secondsVisible:false,rightOffset:6},
         localization:{locale:'en-US',priceFormatter:p=>fmtPx(p)},handleScale:{axisPressedMouseMove:true}});
-      cs=ch.addCandlestickSeries({title:'Bid',priceFormat:{type:'price',precision:2,minMove:.01}});askLine=null;paLines=[];chartColors()}
+      cs=ch.addCandlestickSeries({title:'Bid',priceFormat:{type:'price',precision:2,minMove:.01}});askLine=null;paLines=[];lvLines=[];chartColors()}
     if(!chData.length||Date.now()-chLoadedAt>10*6e4)await loadChart();
     else drawData(); // data came in while the Live chart was showing
   }catch(e){chMsg(`Couldn't load the chart (${esc(e.message)}). Check your connection; some networks block Binance.<button class="btn small ghost" id="ch-retry">Try again</button>`);
@@ -1331,7 +1348,7 @@ async function loadChart(){
   chRaw=j;chGen=srcGen;chData=j.map(toBar);
   chLoadedAt=Date.now();
   if(cs){cs.setData(chData);updAsk();const n=chData.length;ch.timeScale().setVisibleLogicalRange({from:Math.max(0,n-160),to:n+8})}
-  setPrice();refreshZones();chMsg('');
+  setPrice();refreshZones();chMsg('');sessBuild();lvLoad();trendUpdate();
 }
 async function pollChart(){
   if(!$('#v-chart').classList.contains('on')||document.hidden||!chRaw.length)return;
@@ -1541,6 +1558,25 @@ function usHolidays(y){if(HOL[y])return HOL[y];const m={},H=HOL[y]=m;
   const ce=key(12,24),cw=new Date(Date.UTC(y,11,24)).getUTCDay();if(ce!==xm&&cw>0&&cw<6)add(ce,825,'Christmas Eve');
   return H}
 function holidayOn(dateKey){return usHolidays(+dateKey.slice(0,4))[dateKey]||null}
+/* ---------- sessions and key levels (same in the app and the robot) ----------
+   Sessions in UTC: Asia (Tokyo) 00:00–09:00; London 08:00–17:00 London time; New York 08:00–17:00 New York time.
+   Killzones (New York time): Asia 20:00–24:00, London 02:00–05:00, New York 07:00–10:00. */
+const LDN={};
+function ldnOffset(ms){const y=new Date(ms).getUTCFullYear();let d=LDN[y];
+  if(!d){const lastSun=mo=>{const L=new Date(Date.UTC(y,mo+1,0));return L.getUTCDate()-L.getUTCDay()};d=LDN[y]=[Date.UTC(y,2,lastSun(2),1),Date.UTC(y,9,lastSun(9),1)]}
+  return ms>=d[0]&&ms<d[1]?1:0}
+function sessionsOn(D){ // D = a UTC midnight; returns that date's sessions and killzones as [start,end) in ms
+  const H=36e5,ny=-nyOffset(D+12*H),ld=ldnOffset(D+12*H);
+  return{s:[{k:'asia',name:'Asia',a:D,b:D+9*H},{k:'ldn',name:'London',a:D+(8-ld)*H,b:D+(17-ld)*H},{k:'ny',name:'New York',a:D+(8+ny)*H,b:D+(17+ny)*H}],
+    kz:[{k:'asia',a:D-4*H+ny*H,b:D+ny*H},{k:'ldn',a:D+(2+ny)*H,b:D+(5+ny)*H},{k:'ny',a:D+(7+ny)*H,b:D+(10+ny)*H}]}}
+// previous trading day's high/low and today's Asia high/low, from 1-hour candles of open hours ([ms,o,h,l,c])
+function dayLevels(rows,now){
+  const dk=ms=>Math.floor((ms+bShift(ms)*36e5)/864e5),today=dk(now);
+  let prev=-1;for(const c of rows){const k=dk(+c[0]);if(k<today&&k>prev)prev=k}
+  let pdh=-Infinity,pdl=Infinity;for(const c of rows)if(dk(+c[0])===prev){pdh=Math.max(pdh,+c[2]);pdl=Math.min(pdl,+c[3])}
+  const start=today*864e5-bShift(now)*36e5,asiaA=Math.ceil(start/864e5)*864e5,asiaB=asiaA+9*36e5;
+  let ah=-Infinity,al=Infinity,n=0;for(const c of rows){const t=+c[0];if(t>=asiaA&&t<asiaB){n++;ah=Math.max(ah,+c[2]);al=Math.min(al,+c[3])}}
+  return{day:today,pdh:prev>=0?pdh:null,pdl:prev>=0?pdl:null,ah:n?ah:null,al:n?al:null,asiaEnd:asiaB,asiaDone:now>=asiaB&&n>=5}}
 function bShift(ms){return BROKER_TZ==='utc'?0:BROKER_TZ==='myt'?8:nyOffset(ms)+7} // broker server time vs UTC, in hours
 function etParts(ms){const d=new Date(ms+nyOffset(ms)*36e5);
   return{t:d.getUTCHours()*60+d.getUTCMinutes(),wd:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getUTCDay()],key:d.toISOString().slice(0,10)}}
@@ -1619,9 +1655,53 @@ function zoneLoop(){
     // labels that would overlap: keep the stronger zone's label, hide the rest (the list below still shows them)
     const taken=[];zoneEls.filter(o=>o.el.style.display!=='none').sort((p,q)=>(q.z.score||9)-(p.z.score||9)).forEach(({el})=>{
       const y=el._ly,hit=taken.some(t=>Math.abs(t-y)<15);el.classList.toggle('nolb',hit);if(!hit)taken.push(y)})}
+  if(cs&&sessEls.length){const ts=ch.timeScale(),w=$('#ch-sess').clientWidth-(ch.priceScale('right').width()||0);
+    const xa=ts.logicalToCoordinate(1),xb=ts.logicalToCoordinate(2),hb=xa!=null&&xb!=null?(xb-xa)/2:0; // half a bar (fractional positions aren't supported)
+    for(const o of sessEls){let x0=ts.logicalToCoordinate(o.i0),x1=ts.logicalToCoordinate(o.i1);if(x0!=null)x0-=hb;if(x1!=null)x1+=hb;
+      if(x0==null||x1==null||x1<0||x0>w){o.el.style.display='none';continue}x0=Math.max(0,x0);x1=Math.min(w,x1);
+      o.el.style.display='block';o.el.style.left=x0+'px';o.el.style.width=Math.max(1,x1-x0)+'px';
+      if(o.hi!=null){const a=cs.priceToCoordinate(o.hi),b=cs.priceToCoordinate(o.lo);if(a==null||b==null){o.el.style.display='none';continue}
+        o.el.style.top=Math.min(a,b)+'px';o.el.style.height=Math.max(2,Math.abs(b-a))+'px'}
+      else o.el.style.top=($('#ch-sess').clientHeight-(ts.height()||0)-7)+'px'}}
+  if(Date.now()-sessAt>5000)sessBuild(); // the running session grows with new candles
   drawCountdown();
   chLoop=requestAnimationFrame(zoneLoop);
 }
+/* ---------- sessions, key levels and trend ---------- */
+let showSess=store.get('showSess',true),showLv=store.get('showLv',true),sessEls=[],sessAt=0,lv=null,lvLines=[],lvAt=0;
+function bIdx(ms){const t=ms/1000+MYT;let lo=0,hi=chData.length;while(lo<hi){const m=(lo+hi)>>1;if(chData[m].time<t)lo=m+1;else hi=m}return lo}
+function sessBuild(){const box=$('#ch-sess');if(!box)return;sessAt=Date.now();
+  if(!showSess||!chData.length||(TF_SEC[chTf]||0)>3600){box.innerHTML='';sessEls=[];return}
+  const sec=TF_SEC[chTf],t0=(chData[0].time-MYT)*1000,t1=(chData[chData.length-1].time-MYT+sec)*1000,items=[];
+  for(let D=Math.floor(t1/864e5)*864e5-3*864e5;D<=t1;D+=864e5){const r=sessionsOn(D);
+    for(const x of r.s){if(x.b<=t0||x.a>=t1)continue;const i0=bIdx(x.a),i1=Math.min(chData.length,bIdx(x.b))-1;if(i1<i0)continue;
+      let hi=-Infinity,lo=Infinity;for(let i=i0;i<=i1;i++){hi=Math.max(hi,chData[i].high);lo=Math.min(lo,chData[i].low)}items.push({cls:'ss '+x.k,name:x.name,i0,i1,hi,lo})}
+    for(const x of r.kz){if(x.b<=t0||x.a>=t1)continue;const i0=bIdx(x.a),i1=Math.min(chData.length,bIdx(x.b))-1;if(i1<i0)continue;items.push({cls:'kz '+x.k,i0,i1})}}
+  const key=items.map(i=>i.cls+i.i0+'-'+i.i1+':'+(i.hi||'')+(i.lo||'')).join('|');if(key===box._key)return;box._key=key;
+  box.innerHTML=items.map(it=>`<div class="${it.cls}">${it.name?`<span>${it.name}</span>`:''}</div>`).join('');
+  sessEls=[...box.children].map((el,i)=>({el,...items[i]}))}
+async function lvLoad(){try{const rows=(await fetchKl('1h',72)).filter(c=>goldOpen(+c[0]));lv=dayLevels(rows,Date.now());lvAt=Date.now();lvDraw()}catch(e){}}
+function lvDraw(){if(!cs)return;lvLines.forEach(l=>{try{cs.removePriceLine(l)}catch(e){}});lvLines=[];if(!showLv||!lv)return;const o=offNow(),col=cssVar('--muted');
+  const add=(p,t)=>{if(p!=null&&isFinite(p))lvLines.push(cs.createPriceLine({price:p+o,color:col,lineWidth:1,lineStyle:3,axisLabelVisible:true,title:t}))};
+  add(lv.pdh,'PDH');add(lv.pdl,'PDL');if(lv.asiaDone){add(lv.ah,'Asia H');add(lv.al,'Asia L')}}
+setInterval(()=>{if($('#v-chart').classList.contains('on')&&!document.hidden&&Date.now()-lvAt>10*6e4)lvLoad()},6e4);
+// trend on M5, M15, H1 and H4: up when price is above a rising 20 EMA that is above the 50 EMA, down for the opposite, otherwise sideways
+const trCache={};let trBusy=false;
+function emaArr(v,n){const k=2/(n+1);let e=v[0];return v.map(x=>e=x*k+e*(1-k))}
+function trendOf(rows){const c=rows.map(r=>+r[4]);if(c.length<55)return null;const e20=emaArr(c,20),e50=emaArr(c,50),n=c.length-1;
+  let a=0;for(let i=n-13;i<=n;i++)a+=(+rows[i][2])-(+rows[i][3]);a/=14;const sl=e20[n]-e20[n-5];
+  if(c[n]>e20[n]&&e20[n]>e50[n]&&sl>.05*a)return'up';if(c[n]<e20[n]&&e20[n]<e50[n]&&sl<-.05*a)return'down';return'side'}
+async function trendUpdate(){const el=$('#ch-trend');if(!el||trBusy)return;trBusy=true;const now=Date.now(),res={};
+  try{for(const tf of['5m','15m','1h','4h']){const c=trCache[tf];if(c&&now<c.next&&c.gen===srcGen){res[tf]=c.t;continue}
+      try{const rows=(await fetchKl(tf,150)).filter(k=>barOpen(tf,k));const t=trendOf(rows);trCache[tf]={t,gen:srcGen,next:Math.min(+rows[rows.length-1][0]+TF_SEC[tf]*1000+5000,now+5*6e4)};res[tf]=t}
+      catch(e){res[tf]=c?c.t:null}}}finally{trBusy=false}
+  const lab={up:'▲ Up',down:'▼ Down',side:'↔ Sideways'},v=Object.values(res).filter(Boolean),u=v.filter(x=>x==='up').length,d=v.filter(x=>x==='down').length;
+  const sum=!v.length?'':u===4?'All up: buys are favoured.':d===4?'All down: sells are favoured.':u>=3&&!d?'Mostly up: favour buys.':d>=3&&!u?'Mostly down: favour sells.':res['1h']&&res['1h']===res['4h']&&res['1h']!=='side'?`H1 and H4 ${res['1h']}: trade with them, the small timeframes are against.`:'Mixed: smaller size, or wait for the timeframes to line up.';
+  el.innerHTML='<span class="muted" style="font-weight:600">Trend</span>'+[['5m','M5'],['15m','M15'],['1h','H1'],['4h','H4']].map(([k,n])=>`<span class="tf"><b>${n}</b><span class="${res[k]||'side'}">${res[k]?lab[res[k]]:'not enough data'}</span></span>`).join('')+`<span class="sum">${sum}</span>`}
+setInterval(()=>{if($('#v-chart').classList.contains('on')&&!document.hidden)trendUpdate()},6e4);
+$('#o-sess').checked=showSess;$('#o-lv').checked=showLv;
+$('#o-sess').onchange=()=>{showSess=$('#o-sess').checked;store.set('showSess',showSess);$('#ch-sess')._key='';sessBuild()};
+$('#o-lv').onchange=()=>{showLv=$('#o-lv').checked;store.set('showLv',showLv);if(showLv&&!lv)lvLoad();else lvDraw()};
 function renderZoneList(){
   const all=allZones(),zs=[...all].sort((x,y)=>y.to-x.to);
   $('#zone-list').innerHTML=zs.length?zs.map(z=>{
@@ -1768,7 +1848,7 @@ function paCheck(px){if(!pxAlerts.length||px==null||!goldOpen(Date.now()))return
   else if(Date.now()-(paCheck.r||0)>2000){paCheck.r=Date.now();paRender()}}
 // alerts the robot already rang are removed here too
 /* ---------- shared with your other devices through the robot ---------- */
-const sharedNow=()=>({brokerTz:BROKER_TZ,pip,spread,quietNews,lead,which:za.which,tfs:zoneTfs,newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false});
+const sharedNow=()=>({brokerTz:BROKER_TZ,sweepOn:tgc.sweep!==false,pip,spread,quietNews,lead,which:za.which,tfs:zoneTfs,newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false});
 let setAt=store.get('setAt',0),lastShared=null;
 function sharedMark(){const j=JSON.stringify(sharedNow());if(lastShared===null){lastShared=store.get('lastShared',j);}if(j!==lastShared){lastShared=j;setAt=Date.now();store.set('setAt',setAt);store.set('lastShared',j)}}
 function applyShared(sh){if(!sh)return;let ch=false;
@@ -1786,7 +1866,7 @@ function applyShared(sh){if(!sh)return;let ch=false;
     if([5,15,30,60].includes(+t.lead)){lead=+t.lead;store.set('lead',lead);$('#s-lead').value=String(lead)}
     if(t.which==='good'||t.which==='all'){za.which=t.which;store.set('zoneAlerts',za);zaSync()}
     if(Array.isArray(t.tfs)&&t.tfs.length&&JSON.stringify(t.tfs)!==JSON.stringify(zoneTfs)){zoneTfs=t.tfs.filter(x=>TF_SEC[x]);store.set('zoneTfs',zoneTfs);syncZtf();try{updateMTF(true)}catch(e){}}
-    if(typeof t.newsOn==='boolean')tgc.news=t.newsOn;if(typeof t.zonesOn==='boolean')tgc.zones=t.zonesOn;if(typeof t.reportOn==='boolean')tgc.rep=t.reportOn;tgSave();tgFill();
+    if(typeof t.newsOn==='boolean')tgc.news=t.newsOn;if(typeof t.zonesOn==='boolean')tgc.zones=t.zonesOn;if(typeof t.reportOn==='boolean')tgc.rep=t.reportOn;if(typeof t.sweepOn==='boolean')tgc.sweep=t.sweepOn;tgSave();tgFill();
     setAt=sh.setAt;store.set('setAt',setAt);lastShared=JSON.stringify(sharedNow());store.set('lastShared',lastShared);
     try{renderCalKeep();renderZoneList();zaStatus()}catch(e){}ch=true}
   if(ch)tgLastHash=JSON.stringify({...tgPayload(),autoZ:0,autoAt:0}); // what we now hold is what the robot holds
@@ -1876,7 +1956,7 @@ function tgPayload(){
   const adj=offMode()==='broker'&&spotOff&&spotOff.src===SOURCES[srcIdx].name?Math.round((pxOffset.val-spotOff.val)*100)/100:0;
   const biasFor=e=>{const h=history.find(h=>h.evId===e.id&&(h.dir==='Buy'||h.dir==='Sell'));if(h)return{dir:h.dir};
     return lastBias&&lastBias.evId===e.id&&(lastBias.dir==='Buy'||lastBias.dir==='Sell')?{dir:lastBias.dir}:null};
-  return{setAt,tomb,brokerTz:BROKER_TZ,newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false,quietNews,pip,spread,lead,which:za.which,tf:chTf,adj,
+  return{setAt,tomb,brokerTz:BROKER_TZ,sweepOn:tgc.sweep!==false,newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false,quietNews,pip,spread,lead,which:za.which,tf:chTf,adj,
     events:events.filter(e=>e.at>now-3*36e5&&e.at<now+60*864e5&&(e.type!=='Claims'||showClaims)).map(e=>{const h=head(e);return{key:e.key||e.id,type:e.type,name:e.name||NAMES[e.type]||e.type,at:e.at,fc:h.fc||'',pv:h.pv||'',bias:biasFor(e)}}),
     pxAlerts:pxAlerts.map(a=>({id:a.id,px:a.px,dir:a.dir,note:a.note,warn:a.warn,repeat:a.repeat})),
     userZones,aiZones:aiFresh()?{...aiZones,until:biasUntil(aiZones)}:null,
@@ -1894,10 +1974,10 @@ async function tgSync(force){
 }
 // changes are batched; at most one sync a minute unless forced
 function tgSyncSoon(ms=4000){if(!tgReady())return;clearTimeout(tgTimer);const wait=Math.max(ms,6e4-(Date.now()-tgc.lastSync));tgTimer=setTimeout(()=>tgSync(false),Math.min(wait,6e4))}
-function tgFill(){$('#tg-url').value=tgc.url;$('#tg-secret').value=tgc.secret;$('#tg-news').checked=tgc.news;$('#tg-zones').checked=tgc.zones;$('#tg-rep').checked=tgc.rep!==false;tgShow()}
+function tgFill(){$('#tg-url').value=tgc.url;$('#tg-secret').value=tgc.secret;$('#tg-news').checked=tgc.news;$('#tg-zones').checked=tgc.zones;$('#tg-rep').checked=tgc.rep!==false;$('#tg-sweep').checked=tgc.sweep!==false;tgShow()}
 const tgRead=()=>{tgc.url=$('#tg-url').value.trim();tgc.secret=$('#tg-secret').value.trim();tgSave()};
 $('#tg-url').onchange=$('#tg-secret').onchange=()=>{tgRead();tgc.linked=false;tgSave();tgShow();pushShow()};
-$('#tg-news').onchange=$('#tg-zones').onchange=$('#tg-rep').onchange=()=>{tgc.news=$('#tg-news').checked;tgc.zones=$('#tg-zones').checked;tgc.rep=$('#tg-rep').checked;tgSave();tgSync(true)};
+$('#tg-news').onchange=$('#tg-zones').onchange=$('#tg-rep').onchange=$('#tg-sweep').onchange=()=>{tgc.news=$('#tg-news').checked;tgc.zones=$('#tg-zones').checked;tgc.rep=$('#tg-rep').checked;tgc.sweep=$('#tg-sweep').checked;tgSave();tgSync(true)};
 
 /* ---------- after-news results from the robot: show the move, grade saved analyses ---------- */
 function gradeHistory(){
