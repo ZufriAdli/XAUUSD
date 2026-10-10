@@ -496,7 +496,7 @@ input[type=checkbox]:checked{background:var(--foil)}input[type=checkbox]:checked
   #home-cards.two .clock b{font-size:46px}#home-cards.two .stage h1{font-size:28px}
 }
 </style>
-<script>try{document.documentElement.dataset.theme=JSON.parse(localStorage.getItem('re:theme'))||'onyx'}catch(e){document.documentElement.dataset.theme='onyx'}</script>
+<script>try{document.documentElement.dataset.theme=JSON.parse(localStorage.getItem('re:theme'))||'abyss'}catch(e){document.documentElement.dataset.theme='abyss'}</script>
 </head>
 <body>
 <header>
@@ -1364,16 +1364,16 @@ function renderRecord(){
    Prices: Binance gold perpetual (XAUUSDT); falls back to PAXG/USDT (tokenised gold) if that is unreachable. */
 const LWC_URL='https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js';
 const SOURCES=[
-  {name:'Binance gold index price',url:(tf,n)=>`https://fapi.binance.com/fapi/v1/indexPriceKlines?pair=XAUUSDT&interval=${tf}&limit=${n}`},
-  {name:'Binance XAUUSDT gold perpetual',url:(tf,n)=>`https://fapi.binance.com/fapi/v1/klines?symbol=XAUUSDT&interval=${tf}&limit=${n}`},
-  {name:'Binance PAXG/USDT (tokenised gold)',url:(tf,n)=>`https://data-api.binance.vision/api/v3/klines?symbol=PAXGUSDT&interval=${tf}&limit=${n}`},
-  {name:'Binance PAXG/USDT (tokenised gold)',url:(tf,n)=>`https://api.binance.com/api/v3/klines?symbol=PAXGUSDT&interval=${tf}&limit=${n}`},
+  {name:'Binance gold index price',url:(tf,n,end)=>`https://fapi.binance.com/fapi/v1/indexPriceKlines?pair=XAUUSDT&interval=${tf}&limit=${n}${end?'&endTime='+end:''}`},
+  {name:'Binance XAUUSDT gold perpetual',url:(tf,n,end)=>`https://fapi.binance.com/fapi/v1/klines?symbol=XAUUSDT&interval=${tf}&limit=${n}${end?'&endTime='+end:''}`},
+  {name:'Binance PAXG/USDT (tokenised gold)',url:(tf,n,end)=>`https://data-api.binance.vision/api/v3/klines?symbol=PAXGUSDT&interval=${tf}&limit=${n}${end?'&endTime='+end:''}`},
+  {name:'Binance PAXG/USDT (tokenised gold)',url:(tf,n,end)=>`https://api.binance.com/api/v3/klines?symbol=PAXGUSDT&interval=${tf}&limit=${n}${end?'&endTime='+end:''}`},
   {name:'Coinbase PAXG/USD (tokenised gold)',cb:true}
 ];
 /* Coinbase candles: [time s, low, high, open, close, vol], newest first, max 300, no 4h (built from 1h) */
-async function fetchCB(tf,n,signal){
+async function fetchCB(tf,n,signal,end){
   const g={'1m':60,'5m':300,'15m':900,'1h':3600,'4h':3600,'1d':86400}[tf]||300,k=tf==='4h'?4:1;
-  const r=await fetch(`https://api.exchange.coinbase.com/products/PAXG-USD/candles?granularity=${g}`,{signal});
+  const r=await fetch(`https://api.exchange.coinbase.com/products/PAXG-USD/candles?granularity=${g}${end?`&start=${new Date(end-g*300e3).toISOString()}&end=${new Date(end).toISOString()}`:''}`,{signal});
   if(!r.ok)throw new Error('HTTP '+r.status);let j=await r.json();if(!Array.isArray(j)||!j.length)throw new Error('no data');
   j=j.map(c=>[c[0]*1000,c[3],c[2],c[1],c[4],c[5]]).reverse();
   if(k>1){const out=[];j.forEach(c=>{const t=Math.floor(c[0]/144e5)*144e5,L=out[out.length-1];
@@ -1410,10 +1410,10 @@ let libP=null;
 function loadLib(){if(window.LightweightCharts)return Promise.resolve();if(libP)return libP;
   libP=new Promise((ok,no)=>{const sc=document.createElement('script');sc.src=LWC_URL;sc.onload=ok;sc.onerror=()=>{libP=null;no(new Error('chart library could not load'))};document.head.append(sc)});return libP}
 /* every request has a time limit, so a network that silently blocks a source can't leave the chart stuck on "Loading" */
-async function fromSource(i,tf,n,ms){
+async function fromSource(i,tf,n,ms,end){
   const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);
-  try{if(SOURCES[i].cb)return await fetchCB(tf,n,c.signal);
-    const r=await fetch(SOURCES[i].url(tf,n),{signal:c.signal});if(!r.ok)throw new Error('HTTP '+r.status);
+  try{if(SOURCES[i].cb)return await fetchCB(tf,n,c.signal,end);
+    const r=await fetch(SOURCES[i].url(tf,n,end),{signal:c.signal});if(!r.ok)throw new Error('HTTP '+r.status);
     const j=await r.json();if(!Array.isArray(j)||!j.length)throw new Error('no data');return j}
   catch(e){throw e.name==='AbortError'?new Error('timed out'):e}finally{clearTimeout(t)}
 }
@@ -1451,6 +1451,7 @@ async function fetchKl(tf,n){
   const k=AGG[tf],rows=(await fetchKlBase('1h',Math.min(1000,n*k+k))).filter(c=>goldOpen(+c[0]));
   return aggBroker(rows,k).slice(-n);
 }
+function lastOpenEnd(){let t=Math.floor(Date.now()/9e5)*9e5;for(let i=0;i<1500;i++,t-=9e5)if(goldOpen(t-9e5))return t;return Date.now()}
 const barOpen=(tf,k)=>AGG[tf]?true:goldOpen(+k[0]); // H4/D1 are built from open hours only
 function aggBroker(rows,k){const P=k*36e5,out=[];
   for(const c of rows){const t=+c[0],s=bShift(t)*36e5,b=Math.floor((t+s)/P)*P-s,L=out[out.length-1];
@@ -1514,7 +1515,11 @@ function drawData(){
 async function loadChart(){
   if(cs)chMsg('Loading prices…');
   let j=await fetchKl(chTf,1000);if(pxOffset===null){const sp=syncSpot();if(!await Promise.race([sp.then(()=>true),new Promise(r=>setTimeout(()=>r(false),1500))]))sp.then(c=>{if(c)reapply()})} /* don't hold the chart for the spot price */
-  rawLast=+j[j.length-1][4];j=j.filter(k=>barOpen(chTf,k));if(!j.length)throw new Error('no candles while gold was open');
+  rawLast=+j[j.length-1][4];j=j.filter(k=>barOpen(chTf,k));
+  /* weekend / holiday: the newest 1000 small candles can all fall in the closed hours, so also fetch the candles up to the last close */
+  if(j.length<150&&!AGG[chTf]){try{const g=srcGen,e=lastOpenEnd(),k=(await fromSource(srcIdx,chTf,1000,8000,e)).filter(c=>barOpen(chTf,c));
+    if(g===srcGen){const m=new Map();[...k,...j].forEach(c=>m.set(+c[0],c));j=[...m.values()].sort((a,b)=>a[0]-b[0])}}catch(e){}}
+  if(!j.length)throw new Error('no candles while gold was open');
   chRaw=j;chGen=srcGen;chData=j.map(toBar);
   chLoadedAt=Date.now();
   if(cs){cs.setData(chData);updAsk();const n=chData.length;ch.timeScale().setVisibleLogicalRange({from:Math.max(0,n-160),to:n+8})}
