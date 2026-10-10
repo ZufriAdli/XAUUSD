@@ -492,9 +492,14 @@ input[type=checkbox]:checked{background:var(--foil)}input[type=checkbox]:checked
 @media (min-width:1000px){
   #home-cards.two{display:grid;grid-template-columns:1.15fr .85fr;gap:18px;align-items:start}
   #home-cards.two [data-card]:first-child{margin-top:0}
+  #hc-l,#hc-r{display:flex;flex-direction:column;gap:18px}#hc-l>[data-card],#hc-r>[data-card]{margin-top:0!important}#hc-l>[hidden],#hc-r>[hidden]{display:none}
   .hx-chart{height:190px}.hx-px{font-size:60px}
   #home-cards.two .clock b{font-size:46px}#home-cards.two .stage h1{font-size:28px}
 }
+[data-theme="abyss"] .rec-grid{background:none!important;border:0!important;gap:10px;display:flex!important;flex-wrap:wrap}
+[data-theme="abyss"] .rec-grid div{flex:1 1 calc(33.3% - 10px);min-width:96px}[data-theme="abyss"] .rec-grid div:first-child{flex-basis:100%}
+[data-theme="abyss"] .rec-grid div{background:var(--glass);border:1px solid var(--gb)!important;border-radius:16px;padding:18px 10px 16px!important;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center}
+[data-theme="abyss"] .rec-grid b{font-size:34px}
 </style>
 <script>try{document.documentElement.dataset.theme=JSON.parse(localStorage.getItem('re:theme'))||'abyss'}catch(e){document.documentElement.dataset.theme='abyss'}</script>
 </head>
@@ -1919,13 +1924,13 @@ let hxTf=store.get('hxTf','1h'),hxRows=null,hxAt=0,hxBusy=false,dayStat=null,day
 const HX_N={'15m':96,'1h':48,'4h':42,'1d':30};
 function heroTick(px){const el=$('#hx-px');if(!el)return;
   const [i,d]=fmtPx(px).split('.');el.innerHTML=`${i}<span>.${d}</span>`;
-  const lv2=$('#hx-live');lv2.className='hx-live';lv2.innerHTML='<i></i>Live';
+  const lv2=$('#hx-live'),op=goldOpen(Date.now());lv2.className='hx-live'+(op?'':' off');lv2.innerHTML=op?'<i></i>Live':'<i></i>Market closed · last price';
   if(ref24){const r=ref24+offNow(),c=px-r,pc=c/r*100,pe=$('#hx-pct');pe.hidden=false;pe.className='pill '+(c>=0?'pup':'pdn');pe.textContent=`${c>=0?'▲':'▼'} ${Math.abs(pc).toFixed(2)}%`;
     const ce=$('#hx-chg');ce.style.color=c>=0?'var(--buy)':'var(--sell)';ce.textContent=`${c>=0?'+':'−'}${fmtPx(Math.abs(c))} 24h`}
   $('#hx-ask').textContent='Ask '+fmtPx(px+spread);
   if(hxRows&&hxRows.length){const L=hxRows[hxRows.length-1];L.c=px;L.h=Math.max(L.h,px);L.l=Math.min(L.l,px);if(Date.now()-(heroTick.d||0)>1500){heroTick.d=Date.now();heroDraw()}}}
 async function heroLoad(force){if(hxBusy||(!force&&Date.now()-hxAt<5*6e4&&hxRows))return;hxBusy=true;
-  try{const o=offNow(),j=(await fetchKl(hxTf,HX_N[hxTf])).filter(k=>barOpen(hxTf,k));hxRows=j.map(k=>({t:+k[0],h:+k[2]+o,l:+k[3]+o,c:+k[4]+o}));hxAt=Date.now();heroDraw()}catch(e){}finally{hxBusy=false}}
+  try{const o=offNow(),j=(await fetchKl(hxTf,HX_N[hxTf])).filter(k=>barOpen(hxTf,k));hxRows=j.map(k=>({t:+k[0],h:+k[2]+o,l:+k[3]+o,c:+k[4]+o}));hxAt=Date.now();if(lastPx==null&&hxRows.length&&!goldOpen(Date.now())){lastPx=hxRows[hxRows.length-1].c;lastPxAt=Date.now()}heroDraw();if($('#hx-px').textContent==='—'&&hxRows.length)heroTick(lastPx!=null?lastPx:hxRows[hxRows.length-1].c)}catch(e){}finally{hxBusy=false}}
 function heroDraw(){const svg=$('#hx-svg');if(!svg||!hxRows||hxRows.length<3)return;
   const v=hxRows.map(r=>r.c),W=380,H=132,hi=Math.max(...hxRows.map(r=>r.h)),lo=Math.min(...hxRows.map(r=>r.l)),pad=(hi-lo)*.08||1,mx=hi+pad,mn=lo-pad;
   const X=i=>i/(v.length-1)*W,Y=x=>8+(mx-x)/(mx-mn)*(H-24);let d=`M0 ${Y(v[0])}`;
@@ -1943,10 +1948,10 @@ $$('[data-hxtf]').forEach(b=>{b.setAttribute('aria-pressed',b.dataset.hxtf===hxT
 async function dayLoad(){if(Date.now()-dayAt<15*6e4&&dayStat)return;dayAt=Date.now();
   try{const rows=(await fetchKl('1h',360)).filter(c=>goldOpen(+c[0])),dk=ms=>Math.floor((ms+bShift(ms)*36e5)/864e5),m=new Map();
     for(const c of rows){const k=dk(+c[0]),d=m.get(k)||{h:-Infinity,l:Infinity,n:0};d.h=Math.max(d.h,+c[2]);d.l=Math.min(d.l,+c[3]);d.n++;m.set(k,d)}
-    const today=dk(Date.now()),past=[...m.entries()].filter(([k,d])=>k<today&&d.n>=12).slice(-10).map(([,d])=>d.h-d.l),t=m.get(today);
-    dayStat={today:t?t.h-t.l:null,avg:past.length?past.reduce((a,b)=>a+b,0)/past.length:null}}catch(e){}}
+    const today=dk(Date.now()),ks=[...m.keys()].sort((a,b)=>a-b),tk=m.has(today)?today:ks[ks.length-1],past=ks.filter(k=>k<tk&&m.get(k).n>=12).slice(-10).map(k=>m.get(k).h-m.get(k).l),t=m.get(tk);
+    dayStat={today:t?t.h-t.l:null,last:tk!==today,avg:past.length?past.reduce((a,b)=>a+b,0)/past.length:null}}catch(e){}}
 function statsDraw(){
-  if(dayStat&&dayStat.today!=null){$('#hs-rng').textContent='$'+dayStat.today.toFixed(1);$('#hs-rng2').textContent=dayStat.avg?`${Math.round(dayStat.today/dayStat.avg*100)}% of avg day`:''}
+  if(dayStat&&dayStat.today!=null){$('#hs-rng').previousElementSibling.textContent=dayStat.last?'Last day range':"Today's range";$('#hs-rng').textContent='$'+dayStat.today.toFixed(1);$('#hs-rng2').textContent=dayStat.avg?`${Math.round(dayStat.today/dayStat.avg*100)}% of avg day`:''}
   const now=Date.now(),D=Math.floor(now/864e5)*864e5;let cur=null,next=null;
   for(const d of[D-864e5,D,D+864e5])for(const x of sessionsOn(d).s){if(now>=x.a&&now<x.b&&(!cur||x.a>cur.a))cur=x;if(x.a>now&&(!next||x.a<next.a))next=x}
   const left=ms=>{const m=Math.round(ms/6e4);return m>=60?`${Math.floor(m/60)}h ${m%60}m`:`${m}m`};
@@ -1984,7 +1989,7 @@ function sessDraw(){const el=$('#ses-body');if(!el)return;const now=Date.now(),A
   el.innerHTML=Object.keys(lanes).map(k=>`<div class="ses-l"><span>${nm[k]}</span><div class="ses-t">${lanes[k].map(x=>`<b style="left:${P(x.a)}%;width:${P(x.b)-P(x.a)}%;background:${col[k]}"></b>`).join('')}<span class="ses-now" style="left:${n}%"></span></div></div>`).join('')+
    `<div class="ses-ax num"><span></span><div><span>8 am</span><span>2 pm</span><span>8 pm</span><span>2 am</span><span>8 am</span></div></div>`+(goldOpen(now)?'':`<div class="ses-note">Gold market closed (${esc(closedWhy(now))}).</div>`)}
 function home42(){if(!$('#v-home').classList.contains('on')||document.hidden)return;
-  if(homeShows('hero'))heroLoad(false);if(homeShows('stats')){dayLoad().then(statsDraw);statsDraw();if(!Object.keys(trCache).length)trendUpdate()}
+  if(homeShows('hero')){heroLoad(false);if($('#hx-px').textContent==='—'||!goldOpen(Date.now())){const p=lastPx!=null?lastPx:hxRows&&hxRows.length?hxRows[hxRows.length-1].c:null;if(p!=null)heroTick(p)}}if(homeShows('stats')){dayLoad().then(statsDraw);statsDraw();if(!Object.keys(trCache).length)trendUpdate()}
   if(homeShows('setup')){if(!autoZ.length&&!mtfBusy)updateMTF(false);if(!Object.keys(trCache).length)trendUpdate();setupDraw()}
   if(homeShows('sessions'))sessDraw()}
 setInterval(home42,4000);setTimeout(home42,1800);document.addEventListener('click',e=>{if(e.target.closest('[data-go="home"]'))setTimeout(home42,300)});
