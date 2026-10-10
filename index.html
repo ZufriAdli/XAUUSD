@@ -440,7 +440,7 @@ input[type=checkbox]:checked{background:var(--foil)}input[type=checkbox]:checked
 .hx-chg{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600}
 .pill{padding:4px 9px;border-radius:8px;font-size:12.5px;font-weight:700}.pdn{background:rgba(255,92,108,.12);color:var(--sell)}.pup{background:rgba(34,211,154,.12);color:var(--buy)}
 .hx-chart{height:132px;margin:8px -18px 0}.hx-chart svg{width:100%;height:100%;display:block}
-.hx-tf{display:flex;gap:4px;margin-top:4px}.hx-tf button{flex:1;border:0;background:none;font-size:12px;font-weight:650;color:var(--muted);padding:8px 0;border-radius:10px;cursor:pointer}.hx-tf button[aria-pressed="true"]{background:rgba(255,255,255,.09);color:var(--ink)}
+.hx-tf{display:flex;gap:4px;margin-top:4px;align-items:center}.hx-sep{width:1px;height:20px;background:var(--gb);margin:0 4px}.hx-tf button.hx-st{flex:0 0 38px;display:grid;place-items:center}.hx-st svg{width:17px;height:17px}.hx-tf button{flex:1;border:0;background:none;font-size:12px;font-weight:650;color:var(--muted);padding:8px 0;border-radius:10px;cursor:pointer}.hx-tf button[aria-pressed="true"]{background:rgba(255,255,255,.09);color:var(--ink)}
 .hs3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .hs3>div{padding:12px;background:var(--glass);border:1px solid var(--gb);border-radius:18px;min-width:0}
 .hs3 .k{font-size:11.5px;color:var(--muted);font-weight:550}.hs3 .v{font-size:17px;font-weight:750;margin-top:5px;white-space:nowrap}.hs3 .s{font-size:11px;color:var(--ph);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -532,7 +532,7 @@ input[type=checkbox]:checked{background:var(--foil)}input[type=checkbox]:checked
       <div class="hx-px num" id="hx-px">—</div>
       <div class="hx-chg num"><span class="pill pdn" id="hx-pct" hidden></span><span id="hx-chg"></span><span id="hx-ask" style="margin-left:auto;color:var(--muted);font-weight:500"></span></div>
       <div class="hx-chart"><svg id="hx-svg" viewBox="0 0 390 132" preserveAspectRatio="none" aria-label="Gold price chart"></svg></div>
-      <div class="hx-tf" role="group" aria-label="Chart range"><button data-hxtf="15m">15M</button><button data-hxtf="1h" aria-pressed="true">1H</button><button data-hxtf="4h">4H</button><button data-hxtf="1d">1D</button></div>
+      <div class="hx-tf" role="group" aria-label="Chart range"><button data-hxtf="15m">15M</button><button data-hxtf="1h" aria-pressed="true">1H</button><button data-hxtf="4h">4H</button><button data-hxtf="1d">1D</button><span class="hx-sep"></span><button class="hx-st" data-hxst="line" aria-label="Line chart" title="Line chart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 17l5-6 4 3 5-7 4 4"/></svg></button><button class="hx-st" data-hxst="candle" aria-label="Candlestick chart" title="Candlestick chart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3v4M7 15v6M17 3v3M17 14v7"/><rect x="4.5" y="7" width="5" height="8" rx="1"/><rect x="14.5" y="6" width="5" height="8" rx="1" fill="currentColor"/></svg></button></div>
     </section>
     <div class="hs3" data-card="stats"><div><div class="k">Today's range</div><div class="v num" id="hs-rng">—</div><div class="s" id="hs-rng2"></div></div><div><div class="k" id="hs-ses">Session</div><div class="v num" id="hs-ses2">—</div><div class="s" id="hs-ses3"></div></div><div><div class="k">Trend H4</div><div class="v" id="hs-tr">—</div><div class="s" id="hs-tr2"></div></div></div>
     <section class="su" data-card="setup" id="su"><div class="muted" style="font-size:14px">Working out the closest setup…</div></section>
@@ -1920,7 +1920,7 @@ function homeTick(force){if(!$('#v-home').classList.contains('on')||document.hid
 setInterval(()=>homeTick(false),3000);document.addEventListener('click',e=>{if(e.target.closest('[data-go="home"]'))setTimeout(()=>homeTick(true),300)});
 homeApply();setTimeout(()=>homeTick(true),2500);matchMedia('(min-width:1000px)').addEventListener('change',homeApply);
 /* ---------- v42 home: price card, stats, closest setup, sessions ---------- */
-let hxTf=store.get('hxTf','1h'),hxRows=null,hxAt=0,hxBusy=false,dayStat=null,dayAt=0;
+let hxSt=store.get('hxSt','line'),hxTf=store.get('hxTf','1h'),hxRows=null,hxAt=0,hxBusy=false,dayStat=null,dayAt=0;
 const HX_N={'15m':96,'1h':48,'4h':42,'1d':30};
 function heroTick(px){const el=$('#hx-px');if(!el)return;
   const [i,d]=fmtPx(px).split('.');el.innerHTML=`${i}<span>.${d}</span>`;
@@ -1930,7 +1930,7 @@ function heroTick(px){const el=$('#hx-px');if(!el)return;
   $('#hx-ask').textContent='Ask '+fmtPx(px+spread);
   if(hxRows&&hxRows.length){const L=hxRows[hxRows.length-1];L.c=px;L.h=Math.max(L.h,px);L.l=Math.min(L.l,px);if(Date.now()-(heroTick.d||0)>1500){heroTick.d=Date.now();heroDraw()}}}
 async function heroLoad(force){if(hxBusy||(!force&&Date.now()-hxAt<5*6e4&&hxRows))return;hxBusy=true;
-  try{const o=offNow(),j=(await fetchKl(hxTf,HX_N[hxTf])).filter(k=>barOpen(hxTf,k));hxRows=j.map(k=>({t:+k[0],h:+k[2]+o,l:+k[3]+o,c:+k[4]+o}));hxAt=Date.now();if(lastPx==null&&hxRows.length&&!goldOpen(Date.now())){lastPx=hxRows[hxRows.length-1].c;lastPxAt=Date.now()}heroDraw();if($('#hx-px').textContent==='—'&&hxRows.length)heroTick(lastPx!=null?lastPx:hxRows[hxRows.length-1].c)}catch(e){}finally{hxBusy=false}}
+  try{const o=offNow(),j=(await fetchKl(hxTf,HX_N[hxTf])).filter(k=>barOpen(hxTf,k));hxRows=j.map(k=>({t:+k[0],o:+k[1]+o,h:+k[2]+o,l:+k[3]+o,c:+k[4]+o}));hxAt=Date.now();if(lastPx==null&&hxRows.length&&!goldOpen(Date.now())){lastPx=hxRows[hxRows.length-1].c;lastPxAt=Date.now()}heroDraw();if($('#hx-px').textContent==='—'&&hxRows.length)heroTick(lastPx!=null?lastPx:hxRows[hxRows.length-1].c)}catch(e){}finally{hxBusy=false}}
 function heroDraw(){const svg=$('#hx-svg');if(!svg||!hxRows||hxRows.length<3)return;
   const v=hxRows.map(r=>r.c),W=380,H=132,hi=Math.max(...hxRows.map(r=>r.h)),lo=Math.min(...hxRows.map(r=>r.l)),pad=(hi-lo)*.08||1,mx=hi+pad,mn=lo-pad;
   const X=i=>i/(v.length-1)*W,Y=x=>8+(mx-x)/(mx-mn)*(H-24);let d=`M0 ${Y(v[0])}`;
@@ -1938,11 +1938,16 @@ function heroDraw(){const svg=$('#hx-svg');if(!svg||!hxRows||hxRows.length<3)ret
   const up=v[v.length-1]>=v[0],hiI=hxRows.findIndex(r=>r.h===hi),loI=hxRows.findIndex(r=>r.l===lo),L=v.length-1,c1=cssVar('--gold')||'#F2CF72';
   let s=`<defs><linearGradient id="hxf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c1}" stop-opacity=".32"/><stop offset="1" stop-color="${c1}" stop-opacity="0"/></linearGradient></defs>`;
   for(let k=1;k<4;k++)s+=`<line x1="0" x2="${W}" y1="${k*H/4}" y2="${k*H/4}" stroke="currentColor" stroke-opacity=".06" stroke-dasharray="3 5"/>`;
-  s+=`<path d="${d} L${W} ${H} L0 ${H}Z" fill="url(#hxf)"/><path d="${d}" fill="none" stroke="${c1}" stroke-width="2.2"/>`;
-  s+=`<circle cx="${X(L)}" cy="${Y(v[L])}" r="9" fill="${c1}" opacity=".22"/><circle cx="${X(L)}" cy="${Y(v[L])}" r="4.5" fill="${c1}" stroke="var(--bg)" stroke-width="2"/>`;
+  if(hxSt==='candle'){const n=hxRows.length,bw=W/n,cu=cssVar('--buy')||'#22D39A',cd=cssVar('--sell')||'#F0616D';
+    hxRows.forEach((r,i)=>{const x=(i+.5)*bw,o2=r.o!=null?r.o:(i?hxRows[i-1].c:r.c),up=r.c>=o2,col=up?cu:cd,y1=Y(Math.max(o2,r.c)),y2=Y(Math.min(o2,r.c));
+      s+=`<line x1="${x}" x2="${x}" y1="${Y(r.h)}" y2="${Y(r.l)}" stroke="${col}" stroke-width="1" vector-effect="non-scaling-stroke"/><rect x="${x-bw*.34}" width="${bw*.68}" y="${y1}" height="${Math.max(1,y2-y1)}" fill="${col}" rx="${Math.min(1.5,bw*.1)}"/>`});
+    s+=`<line x1="0" x2="${W}" y1="${Y(v[L])}" y2="${Y(v[L])}" stroke="${c1}" stroke-opacity=".7" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>`}
+  else s+=`<path d="${d} L${W} ${H} L0 ${H}Z" fill="url(#hxf)"/><path d="${d}" fill="none" stroke="${c1}" stroke-width="2.2"/>`;
+  if(hxSt!=='candle')s+=`<circle cx="${X(L)}" cy="${Y(v[L])}" r="9" fill="${c1}" opacity=".22"/><circle cx="${X(L)}" cy="${Y(v[L])}" r="4.5" fill="${c1}" stroke="var(--bg)" stroke-width="2"/>`;
   const tx=(i,y,t,a)=>`<text x="${Math.max(30,Math.min(W-30,X(i)))}" y="${y}" fill="currentColor" fill-opacity=".55" font-size="10" font-weight="600" text-anchor="${a}" font-family="Inter,system-ui">${t}</text>`;
   s+=tx(hiI,Math.max(10,Y(hi)-4),'H '+fmtPx(hi),'middle')+tx(loI,Math.min(H-2,Y(lo)+14),'L '+fmtPx(lo),'middle');
   svg.innerHTML=s;svg.style.color='var(--ink)'}
+$$('[data-hxst]').forEach(b=>{b.setAttribute('aria-pressed',b.dataset.hxst===hxSt);b.onclick=()=>{hxSt=b.dataset.hxst;store.set('hxSt',hxSt);$$('[data-hxst]').forEach(x=>x.setAttribute('aria-pressed',x===b));heroDraw()}});
 $$('[data-hxtf]').forEach(b=>{b.setAttribute('aria-pressed',b.dataset.hxtf===hxTf);b.onclick=()=>{hxTf=b.dataset.hxtf;store.set('hxTf',hxTf);$$('[data-hxtf]').forEach(x=>x.setAttribute('aria-pressed',x===b));hxRows=null;heroLoad(true)}});
 // today's range vs the average day (from 1-hour candles, broker days)
 async function dayLoad(){if(Date.now()-dayAt<15*6e4&&dayStat)return;dayAt=Date.now();
