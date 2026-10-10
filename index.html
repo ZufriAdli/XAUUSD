@@ -439,7 +439,7 @@ input[type=checkbox]:checked{background:var(--foil)}input[type=checkbox]:checked
 .hx-px{font-size:46px;font-weight:750;letter-spacing:-.04em;margin:10px 0 4px;line-height:1}.hx-px span{color:var(--muted);font-size:27px}
 .hx-chg{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600}
 .pill{padding:4px 9px;border-radius:8px;font-size:12.5px;font-weight:700}.pdn{background:rgba(255,92,108,.12);color:var(--sell)}.pup{background:rgba(34,211,154,.12);color:var(--buy)}
-.hx-chart{height:132px;margin:8px -18px 0}.hx-chart svg{width:100%;height:100%;display:block}
+.hx-chart{height:132px;margin:8px -18px 0;position:relative;touch-action:pan-y;cursor:crosshair}.hx-axis{position:relative;height:16px;margin:2px -18px 0;font-size:10.5px;color:var(--ph,var(--muted));font-weight:550}.hx-axis span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}.hx-cross{position:absolute;top:0;bottom:0;width:1px;background:var(--ink);opacity:.35;pointer-events:none}.hx-tip{position:absolute;top:2px;transform:translateX(-50%);background:rgba(20,22,26,.92);border:1px solid var(--gb);color:#fff;font-size:11.5px;font-weight:600;padding:5px 8px;border-radius:9px;white-space:nowrap;pointer-events:none;line-height:1.35;text-align:center}.hx-tip small{display:block;color:#9aa3ad;font-weight:500;font-size:10.5px}.hx-chart svg{width:100%;height:100%;display:block}
 .hx-tf{display:flex;gap:4px;margin-top:4px;align-items:center}.hx-sep{width:1px;height:20px;background:var(--gb);margin:0 4px}.hx-tf button.hx-st{flex:0 0 38px;display:grid;place-items:center}.hx-st svg{width:17px;height:17px}.hx-tf button{flex:1;border:0;background:none;font-size:12px;font-weight:650;color:var(--muted);padding:8px 0;border-radius:10px;cursor:pointer}.hx-tf button[aria-pressed="true"]{background:rgba(255,255,255,.09);color:var(--ink)}
 .hs3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .hs3>div{padding:12px;background:var(--glass);border:1px solid var(--gb);border-radius:18px;min-width:0}
@@ -542,7 +542,7 @@ input[type=checkbox]:checked{background:var(--foil)}input[type=checkbox]:checked
       <div class="hx-pair"><span class="hx-coin">Au</span>XAU/USD<span style="color:var(--ph)">· spot gold</span><span class="hx-live off" id="hx-live"><i></i>Connecting</span></div>
       <div class="hx-px num" id="hx-px">—</div>
       <div class="hx-chg num"><span class="pill pdn" id="hx-pct" hidden></span><span id="hx-chg"></span><span id="hx-ask" style="margin-left:auto;color:var(--muted);font-weight:500"></span></div>
-      <div class="hx-chart"><svg id="hx-svg" viewBox="0 0 390 132" preserveAspectRatio="none" aria-label="Gold price chart"></svg></div>
+      <div class="hx-chart" id="hx-chart"><svg id="hx-svg" viewBox="0 0 390 132" preserveAspectRatio="none" aria-label="Gold price chart"></svg><div class="hx-cross" id="hx-cross" hidden></div><div class="hx-tip num" id="hx-tip" hidden></div></div><div class="hx-axis num" id="hx-axis"></div>
       <div class="hx-tf" role="group" aria-label="Chart range"><button data-hxtf="15m">15M</button><button data-hxtf="1h" aria-pressed="true">1H</button><button data-hxtf="4h">4H</button><button data-hxtf="1d">1D</button><span class="hx-sep"></span><button class="hx-st" data-hxst="line" aria-label="Line chart" title="Line chart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 17l5-6 4 3 5-7 4 4"/></svg></button><button class="hx-st" data-hxst="candle" aria-label="Candlestick chart" title="Candlestick chart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3v4M7 15v6M17 3v3M17 14v7"/><rect x="4.5" y="7" width="5" height="8" rx="1"/><rect x="14.5" y="6" width="5" height="8" rx="1" fill="currentColor"/></svg></button></div>
     </section>
     <div class="hs3" data-card="stats"><div><div class="k">Today's range</div><div class="v num" id="hs-rng">—</div><div class="s" id="hs-rng2"></div></div><div><div class="k" id="hs-ses">Session</div><div class="v num" id="hs-ses2">—</div><div class="s" id="hs-ses3"></div></div><div><div class="k">Trend H4</div><div class="v" id="hs-tr">—</div><div class="s" id="hs-tr2"></div></div></div>
@@ -1957,7 +1957,22 @@ function heroDraw(){const svg=$('#hx-svg');if(!svg||!hxRows||hxRows.length<3)ret
   if(hxSt!=='candle')s+=`<circle cx="${X(L)}" cy="${Y(v[L])}" r="9" fill="${c1}" opacity=".22"/><circle cx="${X(L)}" cy="${Y(v[L])}" r="4.5" fill="${c1}" stroke="var(--bg)" stroke-width="2"/>`;
   const tx=(i,y,t,a)=>`<text x="${Math.max(30,Math.min(W-30,X(i)))}" y="${y}" fill="currentColor" fill-opacity=".55" font-size="10" font-weight="600" text-anchor="${a}" font-family="Inter,system-ui">${t}</text>`;
   s+=tx(hiI,Math.max(10,Y(hi)-4),'H '+fmtPx(hi),'middle')+tx(loI,Math.min(H-2,Y(lo)+14),'L '+fmtPx(lo),'middle');
-  svg.innerHTML=s;svg.style.color='var(--ink)'}
+  svg.innerHTML=s;svg.style.color='var(--ink)';
+  const n=hxRows.length;hxFrac=hxSt==='candle'?(i=>(i+.5)*W/n/390):(i=>i/(n-1)*W/390);
+  const ax=$('#hx-axis');if(ax)ax.innerHTML=[.1,.37,.63,.9].map(f=>{const i=Math.round(f*(n-1));return`<span style="left:${(hxFrac(i)*100).toFixed(2)}%">${hxFmt(hxRows[i].t,false)}</span>`}).join('')}
+let hxFrac=null;
+const hxF={};function hxFmt(ms,full){const tz='Asia/Kuala_Lumpur',k=(full?'f':'s')+hxTf;
+  if(!hxF[k])hxF[k]=new Intl.DateTimeFormat('en-GB',full?(hxTf==='1d'?{weekday:'short',day:'numeric',month:'short',timeZone:tz}:{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:tz})
+    :hxTf==='15m'?{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:tz}:hxTf==='1h'?{weekday:'short',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:tz}:{day:'numeric',month:'short',timeZone:tz});
+  return hxF[k].format(ms).replace(',','')}
+(function(){const box=$('#hx-chart');if(!box)return;const cr=$('#hx-cross'),tip=$('#hx-tip');
+  const show=e=>{if(!hxRows||!hxFrac)return;const r=box.getBoundingClientRect(),f=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),n=hxRows.length;
+    let best=0,bd=9;for(let i=0;i<n;i++){const d=Math.abs(hxFrac(i)-f);if(d<bd){bd=d;best=i}}
+    const row=hxRows[best],x=hxFrac(best)*100;cr.style.left=x+'%';cr.hidden=false;
+    tip.innerHTML=(hxSt==='candle'?`O ${fmtPx(row.o)} H ${fmtPx(row.h)}<br>L ${fmtPx(row.l)} C ${fmtPx(row.c)}`:fmtPx(row.c))+`<small>${hxFmt(row.t,true)} MYT</small>`;
+    tip.hidden=false;const w=tip.offsetWidth/r.width*100;tip.style.left=Math.max(w/2+1,Math.min(99-w/2,x))+'%'};
+  const hide=()=>{cr.hidden=true;tip.hidden=true};
+  box.addEventListener('pointermove',show);box.addEventListener('pointerdown',show);box.addEventListener('pointerleave',hide);box.addEventListener('pointerup',e=>{if(e.pointerType!=='mouse')setTimeout(hide,1800)});box.addEventListener('pointercancel',hide)})();
 $$('[data-hxst]').forEach(b=>{b.setAttribute('aria-pressed',b.dataset.hxst===hxSt);b.onclick=()=>{hxSt=b.dataset.hxst;store.set('hxSt',hxSt);$$('[data-hxst]').forEach(x=>x.setAttribute('aria-pressed',x===b));heroDraw()}});
 $$('[data-hxtf]').forEach(b=>{b.setAttribute('aria-pressed',b.dataset.hxtf===hxTf);b.onclick=()=>{hxTf=b.dataset.hxtf;store.set('hxTf',hxTf);$$('[data-hxtf]').forEach(x=>x.setAttribute('aria-pressed',x===b));hxRows=null;heroLoad(true)}});
 // today's range vs the average day (from 1-hour candles, broker days)
