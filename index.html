@@ -596,8 +596,27 @@ body{background-attachment:fixed}
 .sw-emerald b{background:linear-gradient(120deg,#A7F3D0,#34D399)!important}
 .sw-onyx b{background:linear-gradient(120deg,#FFFFFF,#94A3B8)!important}
 .sw-ivory b{background:linear-gradient(120deg,#E9A27F,#A9503A)!important}
+/* v54: four new gradient themes */
+:root[data-tone="sunset"]{--bg:#120A10;--soft:#1E1119;--field:#170D14;--line:#2E1A26;--header:rgba(18,10,16,.82);--muted:#B39AA6;--ph:#77606C;
+  --g1:rgba(251,146,60,.32);--g2:rgba(219,39,119,.26);--bgimg:linear-gradient(180deg,#2A1218 0,#120A10 560px);
+  --gold:#FDBA74;--gold-fill:#FB923C;--gold-hover:#FCA55A;--on-gold:#2E1203;--foil:linear-gradient(120deg,#FED7AA,#FB923C 50%,#E11D74);--hair:rgba(253,186,116,.3)}
+:root[data-tone="nebula"]{--bg:#0B0718;--soft:#160F2A;--field:#110B22;--line:#261B45;--header:rgba(11,7,24,.82);--muted:#A99BC8;--ph:#6B5E8C;
+  --g1:rgba(232,121,249,.30);--g2:rgba(79,70,229,.32);--bgimg:linear-gradient(180deg,#1A0F38 0,#0B0718 560px);
+  --gold:#F0ABFC;--gold-fill:#D946EF;--gold-hover:#E472F5;--on-gold:#2A0533;--foil:linear-gradient(120deg,#F5D0FE,#D946EF 50%,#6366F1);--hair:rgba(240,171,252,.3)}
+:root[data-tone="forest"]{--bg:#06110C;--soft:#0D1D15;--field:#091711;--line:#173024;--header:rgba(6,17,12,.82);--muted:#93AE9F;--ph:#56705F;
+  --g1:rgba(190,242,100,.24);--g2:rgba(20,184,166,.26);--bgimg:linear-gradient(180deg,#0C2418 0,#06110C 560px);
+  --gold:#D9F99D;--gold-fill:#A3E635;--gold-hover:#BEF264;--on-gold:#142303;--foil:linear-gradient(120deg,#ECFCCB,#A3E635 50%,#14B8A6);--hair:rgba(217,249,157,.3)}
+:root[data-tone="pearl"]{--bg:#F6F4FB;--soft:#EFECF7;--field:#FFFFFF;--line:#E4DFF0;--header:rgba(250,248,255,.8);--muted:#6E6886;--ph:#A39DB8;--ink:#1C1830;
+  --g1:rgba(244,114,182,.26);--g2:rgba(56,189,248,.24);--bgimg:linear-gradient(160deg,#FCEAF4 0,#EEEAFE 45%,#E3F2FD 100%);
+  --glass:linear-gradient(180deg,rgba(255,255,255,.82),rgba(255,255,255,.6));--gb:rgba(124,58,237,.12);
+  --gold:#7C3AED;--gold-fill:#8B5CF6;--gold-hover:#7C4DF0;--on-gold:#FFFFFF;--foil:linear-gradient(120deg,#C4B5FD,#8B5CF6 50%,#EC4899);--hair:rgba(124,58,237,.25)}
+:root[data-tone="pearl"] select,:root[data-tone="pearl"] input:not([type=checkbox]){background:#FFFFFF}:root[data-tone="pearl"] input[type=checkbox]{background:#DCD6EA}:root[data-tone="pearl"] input[type=checkbox]:checked{background:var(--foil)}
+.sw-sunset{background:radial-gradient(80% 70% at 85% 5%,rgba(251,146,60,.85),transparent 70%),radial-gradient(70% 70% at 0% 85%,rgba(219,39,119,.7),transparent 70%),#120A10}.sw-sunset b{background:linear-gradient(120deg,#FED7AA,#FB923C)}
+.sw-nebula{background:radial-gradient(80% 70% at 85% 5%,rgba(232,121,249,.8),transparent 70%),radial-gradient(70% 70% at 0% 85%,rgba(79,70,229,.85),transparent 70%),#0B0718}.sw-nebula b{background:linear-gradient(120deg,#F5D0FE,#D946EF)}
+.sw-forest{background:radial-gradient(80% 70% at 85% 5%,rgba(190,242,100,.6),transparent 70%),radial-gradient(70% 70% at 0% 85%,rgba(20,184,166,.6),transparent 70%),#06110C}.sw-forest b{background:linear-gradient(120deg,#ECFCCB,#A3E635)}
+.sw-pearl{background:linear-gradient(150deg,#FCE7F3,#EDE9FE 50%,#DBEAFE)}.sw-pearl b{background:linear-gradient(120deg,#C4B5FD,#8B5CF6 60%,#EC4899)}
 </style>
-<script>(function(){var d=document.documentElement,t='abyss';try{t=JSON.parse(localStorage.getItem('re:theme'))||'abyss'}catch(e){}if(t==='plum'||t==='wine')t='abyss';d.dataset.theme=t==='ivory'?'ivory':'abyss';if(t!=='ivory'&&t!=='abyss')d.dataset.tone=t})()</script>
+<script>(function(){var d=document.documentElement,t='abyss',M={plum:'abyss',wine:'abyss',espresso:'abyss',onyx:'sunset',navy:'nebula',emerald:'forest',ivory:'pearl'};try{t=JSON.parse(localStorage.getItem('re:theme'))||'abyss'}catch(e){}t=M[t]||t;d.dataset.theme=t==='pearl'?'ivory':'abyss';if(t!=='abyss')d.dataset.tone=t})()</script>
 </head>
 <body>
 <header>
@@ -859,7 +878,7 @@ body{background-attachment:fixed}
 
     <div class="step">
       <h3>Colour theme</h3>
-      <div class="picker tp" role="group" aria-label="Colour theme"><button data-theme-pick="abyss" aria-label="Abyss gold"><i class="sw-abyss"><b></b></i><span>Abyss gold</span></button><button data-theme-pick="aurora" aria-label="Aurora"><i class="sw-aurora"><b></b></i><span>Aurora</span></button><button data-theme-pick="rose" aria-label="Rose gold"><i class="sw-rose"><b></b></i><span>Rose gold</span></button><button data-theme-pick="ocean" aria-label="Deep ocean"><i class="sw-ocean"><b></b></i><span>Deep ocean</span></button><button data-theme-pick="onyx" aria-label="Onyx"><i class="sw-onyx"><b></b></i><span>Onyx</span></button><button data-theme-pick="navy" aria-label="Navy"><i class="sw-navy"><b></b></i><span>Navy</span></button><button data-theme-pick="emerald" aria-label="Emerald"><i class="sw-emerald"><b></b></i><span>Emerald</span></button><button data-theme-pick="ivory" aria-label="Ivory"><i class="sw-ivory"><b></b></i><span>Ivory</span></button></div>
+      <div class="picker tp" role="group" aria-label="Colour theme"><button data-theme-pick="abyss" aria-label="Abyss gold"><i class="sw-abyss"><b></b></i><span>Abyss gold</span></button><button data-theme-pick="aurora" aria-label="Aurora"><i class="sw-aurora"><b></b></i><span>Aurora</span></button><button data-theme-pick="rose" aria-label="Rose gold"><i class="sw-rose"><b></b></i><span>Rose gold</span></button><button data-theme-pick="ocean" aria-label="Deep ocean"><i class="sw-ocean"><b></b></i><span>Deep ocean</span></button><button data-theme-pick="sunset" aria-label="Sunset"><i class="sw-sunset"><b></b></i><span>Sunset</span></button><button data-theme-pick="nebula" aria-label="Nebula"><i class="sw-nebula"><b></b></i><span>Nebula</span></button><button data-theme-pick="forest" aria-label="Neon forest"><i class="sw-forest"><b></b></i><span>Neon forest</span></button><button data-theme-pick="pearl" aria-label="Pearl"><i class="sw-pearl"><b></b></i><span>Pearl</span></button></div>
       <p class="set-note" id="theme-name" style="margin-top:12px"></p>
     </div>
 
@@ -2317,8 +2336,8 @@ $('#z-spread').value=spread?String(spread):'';
 $('#z-spread').onchange=()=>{const v=parseNum($('#z-spread').value);spread=v!==null&&v>=0&&v<20?v:0;PLAN_SPREAD=spread;store.set('spread',spread);try{renderZoneList();zaStatus();tgSyncSoon()}catch(e){}$('#z-spread').value=spread?String(spread):'';updAsk();if(lastPx!=null&&$('#tk-ba'))$('#tk-ba').innerHTML=`Bid <b>${fmtPx(lastPx)}</b>&nbsp;&nbsp;Ask <b>${fmtPx(lastPx+spread)}</b>`;toast(spread?`Ask line set ${spread.toFixed(2)} above Bid`:'Ask line hidden')};
 
 /* colour theme */
-const NAMES_T={abyss:'Abyss gold',aurora:'Aurora',rose:'Rose gold',ocean:'Deep ocean',onyx:'Onyx platinum',navy:'Midnight navy',emerald:'Emerald',ivory:'Ivory copper'};
-function setTheme(t,say){if(!NAMES_T[t])t='abyss';const D=document.documentElement;D.dataset.theme=t==='ivory'?'ivory':'abyss';if(t==='ivory'||t==='abyss')delete D.dataset.tone;else D.dataset.tone=t;try{document.querySelector('meta[name=theme-color]').content=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#0F0F11'}catch(e){}store.set('theme',t);$$('[data-theme-pick]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.themePick===t));$('#theme-name').textContent='Current theme: '+NAMES_T[t];renderTV();if(typeof chartColors==='function'&&ch)chartColors();if(typeof renderTVChart==='function'&&chMode==='tv'&&$('#v-chart').classList.contains('on'))renderTVChart();if(say)toast(NAMES_T[t]+' theme')}
+const NAMES_T={abyss:'Abyss gold',aurora:'Aurora',rose:'Rose gold',ocean:'Deep ocean',sunset:'Sunset',nebula:'Nebula',forest:'Neon forest',pearl:'Pearl'},OLD_T={plum:'abyss',wine:'abyss',espresso:'abyss',onyx:'sunset',navy:'nebula',emerald:'forest',ivory:'pearl'};
+function setTheme(t,say){t=OLD_T[t]||t;if(!NAMES_T[t])t='abyss';const D=document.documentElement;D.dataset.theme=t==='pearl'?'ivory':'abyss';if(t==='abyss')delete D.dataset.tone;else D.dataset.tone=t;try{document.querySelector('meta[name=theme-color]').content=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#0F0F11'}catch(e){}store.set('theme',t);$$('[data-theme-pick]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.themePick===t));$('#theme-name').textContent='Current theme: '+NAMES_T[t];renderTV();if(typeof chartColors==='function'&&ch)chartColors();if(typeof renderTVChart==='function'&&chMode==='tv'&&$('#v-chart').classList.contains('on'))renderTVChart();if(say)toast(NAMES_T[t]+' theme')}
 
 /* live XAUUSD price only, no chart (TradingView single-quote widget) */
 let tvMode=null;
