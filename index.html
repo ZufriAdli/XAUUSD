@@ -511,6 +511,24 @@ input[type=checkbox]:checked{background:var(--foil)}input[type=checkbox]:checked
   .cal tr td:last-child{grid-area:acts}.cal .acts .icon{width:34px;height:34px}
   .cal tr.wk th{padding:28px 0 8px;font-size:22px}.cal tr.wk th small{display:inline-block}
 }
+/* v48 settings: iOS-style grouped list */
+[data-theme="abyss"] #v-set .step{padding:18px 16px 16px!important;margin-top:14px;border-top:1px solid var(--gb)}
+[data-theme="abyss"] #v-set .toolbar+.step{margin-top:6px}
+[data-theme="abyss"] #v-set .step h3{font-size:12px!important;text-transform:uppercase;letter-spacing:.08em;color:var(--gold);font-weight:700;margin:0 0 10px}
+[data-theme="abyss"] #v-set .sub-h{font-size:15px;margin:18px 0 8px}
+[data-theme="abyss"] #v-set .set-note,[data-theme="abyss"] #v-set .za>span{font-size:12.5px!important;line-height:1.5;color:var(--muted)}
+[data-theme="abyss"] #v-set .form{gap:12px}
+[data-theme="abyss"] #v-set .form label{font-size:14px}
+[data-theme="abyss"] #v-set .form label small{font-size:12px}
+[data-theme="abyss"] #v-set select{text-overflow:ellipsis}
+[data-theme="abyss"] #v-set label.sw{display:flex!important;flex-direction:row-reverse!important;justify-content:space-between!important;align-items:center!important;gap:14px!important;width:100%;padding:12px 0;margin:0;border-top:1px solid var(--gb);font-size:14.5px;font-weight:550;color:var(--ink);line-height:1.35}
+[data-theme="abyss"] #v-set label.sw input{flex:none}
+[data-theme="abyss"] #v-set .za{display:block!important;background:none!important;border:0!important;padding:0!important;margin-top:14px!important}
+[data-theme="abyss"] #v-set .za>span{display:block;margin-top:8px}
+[data-theme="abyss"] #v-set .picker{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}
+[data-theme="abyss"] #v-set .picker button{width:100%!important;height:auto!important;aspect-ratio:1}
+[data-theme="abyss"] #v-set .cta{display:flex;flex-wrap:wrap;gap:8px}
+@media(max-width:640px){[data-theme="abyss"] #v-set .cta .btn{flex:1 1 auto;justify-content:center;text-align:center}}
 </style>
 <script>try{document.documentElement.dataset.theme=JSON.parse(localStorage.getItem('re:theme'))||'abyss'}catch(e){document.documentElement.dataset.theme='abyss'}</script>
 </head>
