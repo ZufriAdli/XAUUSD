@@ -500,6 +500,17 @@ input[type=checkbox]:checked{background:var(--foil)}input[type=checkbox]:checked
 [data-theme="abyss"] .rec-grid div{flex:1 1 calc(33.3% - 10px);min-width:96px}[data-theme="abyss"] .rec-grid div:first-child{flex-basis:100%}
 [data-theme="abyss"] .rec-grid div{background:var(--glass);border:1px solid var(--gb)!important;border-radius:16px;padding:18px 10px 16px!important;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center}
 [data-theme="abyss"] .rec-grid b{font-size:34px}
+@media(max-width:640px){
+  .cal{overflow-x:visible}.cal table{min-width:0}.cal tbody,.cal tr.wk,.cal tr.wk th,.cal tr.empty-row,.cal tr.empty-row td{display:block}
+  .cal tr:not(.wk):not(.empty-row){display:grid;grid-template-columns:1fr auto;grid-template-areas:"when left" "name name" "fp acts";gap:6px 12px;align-items:center;padding:14px 4px;border-bottom:1px solid var(--line)}
+  .cal tr:not(.wk) td{padding:0;border:0;min-width:0}
+  .cal td.when{grid-area:when}.cal td.when b{display:inline;font-size:14px}.cal td.when small{margin-left:8px;font-size:13px}
+  .cal td:nth-child(2){grid-area:name}.cal td .evname{font-size:16px}
+  .cal td.fp{grid-area:fp;font-size:13px}.cal td.fp.nofc::before{content:none}.cal td.fp::before{content:"Forecast / prev  ";color:var(--ph,var(--muted));font-size:11.5px}
+  .cal td[data-left]{grid-area:left;font-size:12.5px;text-align:right}
+  .cal tr td:last-child{grid-area:acts}.cal .acts .icon{width:34px;height:34px}
+  .cal tr.wk th{padding:28px 0 8px;font-size:22px}.cal tr.wk th small{display:inline-block}
+}
 </style>
 <script>try{document.documentElement.dataset.theme=JSON.parse(localStorage.getItem('re:theme'))||'abyss'}catch(e){document.documentElement.dataset.theme='abyss'}</script>
 </head>
@@ -1072,7 +1083,7 @@ function renderCal(){
     out+=`<tr class="${e.at<now-36e5?'past':''}">
     <td class="when num"><b>${fmtDay.format(e.at)}</b><small>${fmtTime.format(e.at)}${e.est?' (estimate)':''}</small></td>
     <td><span class="tag ${e.type.split(' ')[0]}">${esc(e.type)}</span><div class="evname">${esc(e.name)}</div></td>
-    <td class="fp num">${fpCell(e)}</td>
+    <td class="fp num${compsOf(e.type).length?'':' nofc'}">${fpCell(e)}</td>
     <td class="num muted" data-left="${e.id}">${left(e.at-now)}</td>
     <td><div class="acts">
       <button class="icon" aria-label="Alert ${esc(e.type)}" aria-pressed="${e.remind}" data-bell="${e.id}">${bellSvg}</button>
