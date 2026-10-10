@@ -585,6 +585,17 @@ body{background-attachment:fixed}
 .sw-onyx{background:radial-gradient(80% 70% at 85% 5%,rgba(255,255,255,.22),transparent 70%),linear-gradient(160deg,#2A2A2F,#0F0F11)!important}
 .sw-navy{background:radial-gradient(80% 70% at 85% 5%,rgba(247,215,116,.3),transparent 70%),radial-gradient(80% 70% at 10% 90%,rgba(80,120,255,.6),transparent 70%),#050D1E!important}
 .sw-emerald{background:radial-gradient(80% 70% at 85% 5%,rgba(247,215,116,.3),transparent 70%),radial-gradient(80% 70% at 10% 90%,rgba(52,211,153,.55),transparent 70%),#05211A!important}
+/* v53: each theme has its own accent colour (X79, buttons, switches, + button) */
+:root[data-tone="ocean"]{--gold:#7DD3FC;--gold-fill:#38BDF8;--gold-hover:#5CC8FA;--on-gold:#03202E;--foil:linear-gradient(120deg,#BAE6FD,#38BDF8 55%,#0EA5E9);--hair:rgba(125,211,252,.3)}
+:root[data-tone="navy"]{--gold:#A5B4FC;--gold-fill:#818CF8;--gold-hover:#97A3FA;--on-gold:#0E1238;--foil:linear-gradient(120deg,#C7D2FE,#818CF8 55%,#6366F1);--hair:rgba(165,180,252,.3)}
+:root[data-tone="emerald"]{--gold:#6EE7B7;--gold-fill:#34D399;--gold-hover:#4ADEA8;--on-gold:#032A1E;--foil:linear-gradient(120deg,#A7F3D0,#34D399 55%,#10B981);--hair:rgba(110,231,183,.3)}
+:root[data-tone="onyx"]{--gold:#E5E7EB;--gold-fill:#CBD5E1;--gold-hover:#D9DEE6;--on-gold:#111214;--foil:linear-gradient(120deg,#F1F5F9,#94A3B8 55%,#64748B);--hair:rgba(229,231,235,.25)}
+:root[data-theme="ivory"]{--gold:#B4593A;--gold-fill:#C9714F;--gold-hover:#BD6545;--on-gold:#FFFFFF;--foil:linear-gradient(120deg,#E9A27F,#C9714F 55%,#A9503A);--hair:rgba(180,89,58,.3);--g1:rgba(240,160,120,.28);--g2:rgba(232,190,110,.24)}
+.sw-ocean b{background:linear-gradient(120deg,#BAE6FD,#38BDF8)!important}
+.sw-navy b{background:linear-gradient(120deg,#C7D2FE,#818CF8)!important}
+.sw-emerald b{background:linear-gradient(120deg,#A7F3D0,#34D399)!important}
+.sw-onyx b{background:linear-gradient(120deg,#FFFFFF,#94A3B8)!important}
+.sw-ivory b{background:linear-gradient(120deg,#E9A27F,#A9503A)!important}
 </style>
 <script>(function(){var d=document.documentElement,t='abyss';try{t=JSON.parse(localStorage.getItem('re:theme'))||'abyss'}catch(e){}if(t==='plum'||t==='wine')t='abyss';d.dataset.theme=t==='ivory'?'ivory':'abyss';if(t!=='ivory'&&t!=='abyss')d.dataset.tone=t})()</script>
 </head>
@@ -2306,7 +2317,7 @@ $('#z-spread').value=spread?String(spread):'';
 $('#z-spread').onchange=()=>{const v=parseNum($('#z-spread').value);spread=v!==null&&v>=0&&v<20?v:0;PLAN_SPREAD=spread;store.set('spread',spread);try{renderZoneList();zaStatus();tgSyncSoon()}catch(e){}$('#z-spread').value=spread?String(spread):'';updAsk();if(lastPx!=null&&$('#tk-ba'))$('#tk-ba').innerHTML=`Bid <b>${fmtPx(lastPx)}</b>&nbsp;&nbsp;Ask <b>${fmtPx(lastPx+spread)}</b>`;toast(spread?`Ask line set ${spread.toFixed(2)} above Bid`:'Ask line hidden')};
 
 /* colour theme */
-const NAMES_T={abyss:'Abyss gold',aurora:'Aurora',rose:'Rose gold',ocean:'Deep ocean',onyx:'Onyx',navy:'Midnight navy',emerald:'Emerald',ivory:'Ivory'};
+const NAMES_T={abyss:'Abyss gold',aurora:'Aurora',rose:'Rose gold',ocean:'Deep ocean',onyx:'Onyx platinum',navy:'Midnight navy',emerald:'Emerald',ivory:'Ivory copper'};
 function setTheme(t,say){if(!NAMES_T[t])t='abyss';const D=document.documentElement;D.dataset.theme=t==='ivory'?'ivory':'abyss';if(t==='ivory'||t==='abyss')delete D.dataset.tone;else D.dataset.tone=t;try{document.querySelector('meta[name=theme-color]').content=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#0F0F11'}catch(e){}store.set('theme',t);$$('[data-theme-pick]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.themePick===t));$('#theme-name').textContent='Current theme: '+NAMES_T[t];renderTV();if(typeof chartColors==='function'&&ch)chartColors();if(typeof renderTVChart==='function'&&chMode==='tv'&&$('#v-chart').classList.contains('on'))renderTVChart();if(say)toast(NAMES_T[t]+' theme')}
 
 /* live XAUUSD price only, no chart (TradingView single-quote widget) */
