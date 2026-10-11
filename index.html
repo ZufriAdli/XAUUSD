@@ -658,10 +658,29 @@ ul.zones{padding:4px 14px}
 .zb .lb{background:color-mix(in srgb,var(--bg) 78%,transparent);padding:0 6px;border-radius:5px;font-size:10.5px}
 .zb .lb b{margin-right:4px}
 @media(max-width:820px){.zb .lb i{display:none}}
+/* ---------- v56: candle countdown + lock screen ---------- */
+.hx-cd{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+.hx-cd span{display:inline-flex;align-items:baseline;gap:5px;font-size:11.5px;font-weight:650;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid var(--gb);border-radius:999px;padding:4px 9px}
+.hx-cd span b{color:var(--ink);font-weight:700;font-size:12.5px}
+.hx-cd span.soon{border-color:var(--gold-fill);color:var(--gold)}.hx-cd span.soon b{color:var(--gold)}
+.hx-cd span.now{background:var(--foil);border-color:transparent;color:var(--on-gold)}.hx-cd span.now b{color:var(--on-gold)}
+.hx-cd .off{font-size:12px;color:var(--muted)}
+:root[data-theme="ivory"] .hx-cd span{background:rgba(0,0,0,.03)}
+#lock{display:none;position:fixed;inset:0;z-index:1000;background:var(--bgimg,var(--bg));background-color:var(--bg);align-items:center;justify-content:center;padding:24px}
+html.locked #lock{display:flex}
+html.locked body>*:not(#lock){visibility:hidden}
+html.locked body{overflow:hidden}
+.lk-in{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;max-width:300px}
+.lk-logo{width:76px;height:76px;border-radius:24px;background:var(--foil);color:var(--on-gold);display:grid;place-items:center;font-weight:900;font-size:24px;letter-spacing:-.02em;box-shadow:0 14px 40px rgba(0,0,0,.35);margin-bottom:8px}
+.lk-in b{font-size:19px;color:var(--ink)}.lk-in span{font-size:14px;color:var(--muted);margin-bottom:10px}
+.lk-in .btn{min-width:230px;justify-content:center}
+#s-lock-opts[hidden]{display:none}
 </style>
+<script>try{if(JSON.parse(localStorage.getItem('re:lockId')))document.documentElement.classList.add('locked')}catch(e){}</script>
 <script>(function(){var d=document.documentElement,t='abyss',M={plum:'abyss',wine:'abyss',espresso:'abyss',onyx:'sunset',navy:'nebula',emerald:'forest',ivory:'pearl'};try{t=JSON.parse(localStorage.getItem('re:theme'))||'abyss'}catch(e){}t=M[t]||t;d.dataset.theme=t==='pearl'?'ivory':'abyss';if(t!=='abyss')d.dataset.tone=t})()</script>
 </head>
 <body>
+<div id="lock" role="dialog" aria-modal="true" aria-label="App locked"><div class="lk-in"><div class="lk-logo">X79</div><b>Gold Abyss X79 is locked</b><span id="lk-msg">Use Face ID to open</span><button class="btn gold" id="lk-go" type="button">Unlock with Face ID</button></div></div>
 <header>
   <div class="wrap bar">
     <div class="brand">
@@ -689,6 +708,7 @@ ul.zones{padding:4px 14px}
       <div class="hx-pair"><span class="hx-coin">Au</span>XAU/USD<span style="color:var(--ph)">· spot gold</span><span class="hx-live off" id="hx-live"><i></i>Connecting</span></div>
       <div class="hx-px num" id="hx-px">—</div>
       <div class="hx-chg num"><span class="pill pdn" id="hx-pct" hidden></span><span id="hx-chg"></span><span id="hx-ask" style="margin-left:auto;color:var(--muted);font-weight:500"></span></div>
+      <div class="hx-cd num" id="hx-cd" aria-label="Time left on each candle"></div>
       <div class="hx-chart" id="hx-chart"><svg id="hx-svg" viewBox="0 0 390 132" preserveAspectRatio="none" aria-label="Gold price chart"></svg><div class="hx-cross" id="hx-cross" hidden></div><div class="hx-tip num" id="hx-tip" hidden></div></div><div class="hx-axis num" id="hx-axis"></div>
       <div class="hx-tf" role="group" aria-label="Chart range"><button data-hxtf="15m">15M</button><button data-hxtf="1h" aria-pressed="true">1H</button><button data-hxtf="4h">4H</button><button data-hxtf="1d">1D</button><span class="hx-sep"></span><button class="hx-st" data-hxst="line" aria-label="Line chart" title="Line chart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 17l5-6 4 3 5-7 4 4"/></svg></button><button class="hx-st" data-hxst="candle" aria-label="Candlestick chart" title="Candlestick chart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3v4M7 15v6M17 3v3M17 14v7"/><rect x="4.5" y="7" width="5" height="8" rx="1"/><rect x="14.5" y="6" width="5" height="8" rx="1" fill="currentColor"/></svg></button></div>
     </section>
@@ -991,6 +1011,14 @@ ul.zones{padding:4px 14px}
       </div>
       <div class="cta"><button class="btn small" id="ics-add">Add to phone calendar</button></div>
       <p class="set-note" style="margin-top:14px"><b>iPhone:</b> tap the button, then <b>Add All</b>. <b>Android:</b> open the downloaded file with Samsung Calendar or another calendar app; for Google Calendar, import it at calendar.google.com (Settings, Import &amp; export). Adding again later only updates the same events, it doesn't double them up in iPhone and Samsung calendars.</p>
+    </div>
+
+    <div class="step">
+      <h3>Privacy</h3>
+      <label class="sw"><input type="checkbox" id="s-lock"> Lock the app with Face ID</label>
+      <div class="form" id="s-lock-opts" style="margin-top:6px"><label>Lock again after the app has been closed for
+        <select id="s-lock-after"><option value="0">Every time</option><option value="1">1 minute</option><option value="5">5 minutes</option><option value="15">15 minutes</option><option value="60">1 hour</option></select></label></div>
+      <p class="set-note" id="s-lock-note">Uses Face ID or Touch ID on iPhone (the phone passcode works too), and Windows Hello or Touch ID on a computer. Each device is set up on its own. This hides the app from someone holding your unlocked phone; alerts keep working while it's locked.</p>
     </div>
 
     <div class="step">
@@ -2717,12 +2745,48 @@ if('serviceWorker' in navigator&&isSecureContext&&location.protocol!=='file:'){n
   let hadCtl=!!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!hadCtl){hadCtl=true;return}$('#upd-bar').hidden=false});
   $('#upd-go').onclick=()=>location.reload()}
-})();
 /* mobile: header slides away while scrolling down, comes back when scrolling up */
 (function(){const h=document.querySelector('header'),mq=matchMedia('(max-width:820px)');let ly=scrollY,acc=0;
   addEventListener('scroll',()=>{const y=scrollY,d=y-ly;ly=y;if(!mq.matches||y<70){h.classList.remove('hide');acc=0;return}
     acc=(acc>0)===(d>0)?acc+d:d;if(acc>24)h.classList.add('hide');else if(acc<-24)h.classList.remove('hide')},{passive:true});
   document.addEventListener('click',e=>{if(e.target.closest('[data-go]'))h.classList.remove('hide')})})();
+
+/* ---------- v56: time left on each candle (Home price card) ---------- */
+(function(){const TF=[['M1',6e4],['M5',3e5],['M15',9e5],['H1',36e5]];let last='';
+  const fmt=ms=>{const t=Math.ceil(ms/1e3),h=Math.floor(t/3600),m=Math.floor(t%3600/60),x=t%60;return h?`${h}:${String(m).padStart(2,'0')}:${String(x).padStart(2,'0')}`:`${m}:${String(x).padStart(2,'0')}`};
+  function draw(){const el=$('#hx-cd');if(!el||document.hidden||!$('#v-home').classList.contains('on'))return;const now=Date.now();let h;
+    if(!goldOpen(now))h='<span class="off">Candles paused, market closed</span>';
+    else h=TF.map(([n,P])=>{const left=Math.ceil((now+1)/P)*P-now;return`<span class="${left<=5e3?'now':left<=3e4||(P>=9e5&&left<=12e4)?'soon':''}">${n} <b>${fmt(left)}</b></span>`}).join('');
+    if(h!==last){el.innerHTML=h;last=h}}
+  setInterval(draw,1000);document.addEventListener('visibilitychange',draw);draw()})();
+/* ---------- v56: lock with Face ID / Touch ID / Windows Hello (WebAuthn on this device) ---------- */
+(function(){const D=document.documentElement,b64=a=>btoa(String.fromCharCode(...new Uint8Array(a))),unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0)),rnd=n=>crypto.getRandomValues(new Uint8Array(n));
+  let lockId=store.get('lockId',null),after=+store.get('lockAfter',1),hiddenAt=0,busy=false;
+  const ok=()=>!!(window.PublicKeyCredential&&navigator.credentials&&window.isSecureContext);
+  function lock(){if(lockId){D.classList.add('locked');$('#lk-msg').textContent='Use Face ID to open'}}
+  async function unlock(){if(busy||!lockId)return;busy=true;$('#lk-msg').textContent='Checking…';
+    try{await navigator.credentials.get({publicKey:{challenge:rnd(32),allowCredentials:[{type:'public-key',id:unb64(lockId)}],userVerification:'required',timeout:60000}});
+      D.classList.remove('locked')}
+    catch(e){$('#lk-msg').textContent=e&&e.name==='NotAllowedError'?'Cancelled. Tap to try again.':"Couldn't check: "+(e&&e.message||e)}
+    finally{busy=false}}
+  $('#lk-go').onclick=unlock;
+  if(lockId&&!ok())D.classList.remove('locked'); // e.g. opened over plain http: never trap the user
+  document.addEventListener('visibilitychange',()=>{if(!lockId)return;if(document.hidden){hiddenAt=Date.now();if(after===0)lock()}else if(hiddenAt&&Date.now()-hiddenAt>=after*6e4)lock()});
+  addEventListener('pagehide',()=>{if(lockId)hiddenAt=Date.now()});
+  function sync(){$('#s-lock').checked=!!lockId;$('#s-lock-opts').hidden=!lockId;$('#s-lock-after').value=String(after);
+    if(!ok()){$('#s-lock').disabled=true;$('#s-lock-note').textContent='Face ID lock needs the app opened from its https address (the one you added to your Home Screen).'}}
+  $('#s-lock-after').onchange=()=>{after=+$('#s-lock-after').value;store.set('lockAfter',after)};
+  $('#s-lock').onchange=async()=>{const want=$('#s-lock').checked;
+    if(!want){if(!lockId)return;try{await navigator.credentials.get({publicKey:{challenge:rnd(32),allowCredentials:[{type:'public-key',id:unb64(lockId)}],userVerification:'required',timeout:60000}})}catch(e){sync();toast('Lock stays on');return}
+      lockId=null;store.set('lockId',null);sync();toast('Face ID lock off');return}
+    try{if(PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable&&!await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable())throw new Error('Face ID / Touch ID is not set up on this device');
+      const c=await navigator.credentials.create({publicKey:{rp:{name:'Gold Abyss X79'},user:{id:rnd(16),name:'gold-abyss-x79',displayName:'Gold Abyss X79 lock'},challenge:rnd(32),
+        pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'discouraged'},timeout:60000,attestation:'none'}});
+      lockId=b64(c.rawId);store.set('lockId',lockId);sync();toast('Face ID lock on')}
+    catch(e){sync();toast(e&&e.name==='NotAllowedError'?'Face ID set-up cancelled':"Couldn't turn on: "+(e&&e.message||e))}};
+  sync();if(D.classList.contains('locked'))setTimeout(()=>{$('#lk-go').focus()},50)})();
+
+})();
 </script>
 </body>
 </html>
