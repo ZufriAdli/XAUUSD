@@ -615,6 +615,49 @@ body{background-attachment:fixed}
 .sw-nebula{background:radial-gradient(80% 70% at 85% 5%,rgba(232,121,249,.8),transparent 70%),radial-gradient(70% 70% at 0% 85%,rgba(79,70,229,.85),transparent 70%),#0B0718}.sw-nebula b{background:linear-gradient(120deg,#F5D0FE,#D946EF)}
 .sw-forest{background:radial-gradient(80% 70% at 85% 5%,rgba(190,242,100,.6),transparent 70%),radial-gradient(70% 70% at 0% 85%,rgba(20,184,166,.6),transparent 70%),#06110C}.sw-forest b{background:linear-gradient(120deg,#ECFCCB,#A3E635)}
 .sw-pearl{background:linear-gradient(150deg,#FCE7F3,#EDE9FE 50%,#DBEAFE)}.sw-pearl b{background:linear-gradient(120deg,#C4B5FD,#8B5CF6 60%,#EC4899)}
+/* ---------- v55: Chart and Analysis pages ---------- */
+.ch-head{margin-top:14px}
+.ch-panel{padding:14px 16px;margin-top:12px}
+.ch-panel .ch-opts{margin:0;gap:10px 22px}.ch-panel .ch-opts .sw{color:var(--ink);font-weight:550}
+.ch-panel .trend{margin-top:12px;padding-top:12px;border-top:1px solid var(--gb);gap:8px}
+.ch-panel .trend .tf{border-color:var(--gb);background:rgba(255,255,255,.03);font-size:13px;padding:5px 10px}
+.ch-panel .trend .sum{flex-basis:100%;font-size:13px}
+.ch-panel .ch-bias{margin:10px 0 0;font-size:13px;color:var(--muted)}
+details.xinfo{margin:0 0 14px}details.xinfo summary{cursor:pointer;font-size:13px;font-weight:650;color:var(--gold);list-style:none;display:inline-flex;align-items:center;gap:6px}
+details.xinfo summary::-webkit-details-marker{display:none}details.xinfo summary::before{content:"ⓘ";font-size:14px}
+details.xinfo[open] summary{margin-bottom:8px}details.xinfo .note{font-size:13px;line-height:1.55;margin:0;color:var(--muted)}
+ul.zones{padding:4px 14px}
+.zones li{grid-template-columns:58px minmax(0,1fr) auto auto!important;gap:12px!important;padding:13px 0!important;border-bottom:1px solid var(--gb)!important;align-items:start!important}
+.zones li:last-child{border-bottom:0!important}
+.zones .zt{font-family:var(--sans)!important;font-style:normal!important;font-size:11.5px!important;font-weight:800;letter-spacing:.04em;text-transform:uppercase;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 0 6px;border-radius:10px;line-height:1.1!important;margin-top:2px}
+.zones .zt.Buy{background:rgba(34,211,154,.12);color:var(--buy)}.zones .zt.Sell{background:rgba(255,92,108,.12);color:var(--sell)}
+.zones .zt small.ztf{font-size:10.5px;font-weight:700;opacity:.85;letter-spacing:0;text-transform:none}
+.zones .zr{font-size:15.5px;font-weight:700;min-width:0}
+.zones .zr small{font-size:12px!important;line-height:1.45;margin-top:2px}
+.zones .zr small.pl{color:var(--ink);opacity:.85}
+.zones .zd{font-size:12px!important;font-weight:650;color:var(--muted);background:rgba(255,255,255,.05);border:1px solid var(--gb);padding:3px 9px;border-radius:999px;white-space:nowrap;margin-top:2px}
+.zones .zd.in{color:var(--on-gold);background:var(--foil);border-color:transparent}
+:root[data-theme="ivory"] .zones .zd{background:rgba(0,0,0,.03)}
+.zones .zpa{font-size:12px;font-weight:700}
+#zone-stats{padding:14px 16px}
+.zform{gap:12px}
+@media(max-width:820px){
+  .ch-wrap{height:min(62vh,560px)!important;min-height:360px!important}
+  .zones li{grid-template-columns:52px minmax(0,1fr) auto!important;gap:10px!important}
+  .zones .zd{grid-column:3!important;grid-row:1;text-align:right}
+  .zones li>.icon,.zones li>span:empty{grid-column:3;grid-row:2;justify-self:end}
+  .zform{grid-template-columns:1fr 1fr 1fr!important}.zform .wide{grid-column:1/-1}
+  .za select{flex:1 1 100%}
+  #v-an .run{display:flex;flex-direction:column;gap:10px}#v-an .run .btn{width:100%;justify-content:center}
+  #v-an .row{flex-wrap:wrap}#v-an .row>.btn{width:100%;justify-content:center}
+}
+#v-an .history{margin-top:28px}#v-an .history h2{font-size:19px!important;margin-bottom:10px}
+#v-an .history #hist:empty::after,#v-an #hist .empty{display:block}
+#v-an .step h3 i{font-style:normal;display:inline-grid;place-items:center;width:26px;height:26px;border-radius:9px;background:var(--foil);color:var(--on-gold);font-size:13px;font-weight:800;margin-right:8px;vertical-align:2px}
+#v-an .step h3{font-size:17px!important}
+.zb .lb{background:color-mix(in srgb,var(--bg) 78%,transparent);padding:0 6px;border-radius:5px;font-size:10.5px}
+.zb .lb b{margin-right:4px}
+@media(max-width:820px){.zb .lb i{display:none}}
 </style>
 <script>(function(){var d=document.documentElement,t='abyss',M={plum:'abyss',wine:'abyss',espresso:'abyss',onyx:'sunset',navy:'nebula',emerald:'forest',ivory:'pearl'};try{t=JSON.parse(localStorage.getItem('re:theme'))||'abyss'}catch(e){}t=M[t]||t;d.dataset.theme=t==='pearl'?'ivory':'abyss';if(t!=='abyss')d.dataset.tone=t})()</script>
 </head>
@@ -815,9 +858,11 @@ body{background-attachment:fixed}
       <div class="ch-msg" id="ch-msg" role="status">Loading prices…</div>
       <div id="ch-cd" aria-hidden="true"></div>
     </div>
+    <div class="ch-panel card-like">
     <div class="ch-opts"><label class="sw"><input type="checkbox" id="o-sess"> Sessions and killzones</label><label class="sw"><input type="checkbox" id="o-lv"> PDH/PDL and Asia high/low</label></div>
     <div class="trend" id="ch-trend" aria-live="polite"></div>
     <p class="ch-bias" id="ch-bias"></p>
+    </div>
 
     <div class="block" style="margin-top:40px">
       <div class="block-h"><h2>Buy and sell zones</h2><label class="sw"><input type="checkbox" id="z-auto"> Show auto zones</label></div>
@@ -844,13 +889,13 @@ body{background-attachment:fixed}
         <ul class="pa-list" id="pa-list"></ul>
       </div>
       <p class="note" id="tv-note" style="margin-bottom:12px" hidden>The live chart comes straight from TradingView, so the app can't draw on it. Use these zones as levels, or draw them yourself with TradingView's rectangle tool. Switch to <b>Zones chart</b> to see them drawn automatically with the Ask line and bar countdown.</p>
-      <p class="note" style="margin-bottom:16px">Auto zones combine order blocks (OB), fair value gaps (FVG), liquidity swings, the previous day's high and low (PDH/PDL), round $10 levels and today's VWAP. Broken or filled zones are removed and untested zones score higher. Each zone is labelled with the timeframe it comes from (M5, H1…); a zone sitting inside a higher-timeframe zone is marked "inside H1" and scores higher. The best two on each side are shown for every timeframe you pick. Each zone has a scalp plan: enter at the zone edge, stop beyond it (0.3 ATR plus your broker's spread, so a spread spike doesn't stop you out early), target the next opposite zone or 2R. AI zones come from your latest AI analysis. Zones against your latest bias are faded.</p>
+      <details class="xinfo"><summary>How auto zones work</summary><p class="note">Auto zones combine order blocks (OB), fair value gaps (FVG), liquidity swings, the previous day's high and low (PDH/PDL), round $10 levels and today's VWAP. Broken or filled zones are removed and untested zones score higher. Each zone is labelled with the timeframe it comes from (M5, H1…); a zone sitting inside a higher-timeframe zone is marked "inside H1" and scores higher. The best two on each side are shown for every timeframe you pick. Each zone has a scalp plan: enter at the zone edge, stop beyond it (0.3 ATR plus your broker's spread, so a spread spike doesn't stop you out early), target the next opposite zone or 2R. AI zones come from your latest AI analysis. Zones against your latest bias are faded.</p></details>
       <ul class="zones" id="zone-list"></ul>
     </div>
 
     <div class="block" style="margin-top:44px">
       <div class="block-h"><h2>How the zone alerts did</h2><button class="link" id="zs-refresh">Refresh</button></div>
-      <p class="note" style="margin-bottom:14px">The robot records every zone alert and checks whether price reached the TP or the SL first (if both happen inside one check it counts as a loss; alerts still open after 24 hours expire). Gold's closed hours and the quiet window around big news are skipped.</p>
+      <details class="xinfo"><summary>How this is counted</summary><p class="note">The robot records every zone alert and checks whether price reached the TP or the SL first (if both happen inside one check it counts as a loss; alerts still open after 24 hours expire). Gold's closed hours and the quiet window around big news are skipped.</p></details>
       <div id="zone-stats"></div>
     </div>
 
@@ -2126,7 +2171,7 @@ function renderZoneList(){
   $('#zone-list').innerHTML=zs.length?zs.map(z=>{
     const dist=lastPx==null?'':z.from>lastPx?`${fmtPx(z.from-lastPx)} above`:z.to<lastPx?`${fmtPx(lastPx-z.to)} below`:'Price is inside';
     const pl=plan(z,all);
-    return`<li class="${isDim(z)?'dim':''}"><span class="zt ${z.type}">${z.type}${z.src==='auto'&&z.tfs?`<small class="ztf">${z.tfs[0]}</small>`:''}</span><span class="zr num">${fmtPx(z.from)} – ${fmtPx(z.to)}<small>${srcLabel(z)}</small><small class="pl">Entry ${fmtPx(pl.e)}, SL ${fmtPx(pl.sl)}, TP ${fmtPx(pl.tp)} (${pl.rr.toFixed(1)}R)${lastPx!=null&&lastPx>Math.min(pl.tp,pl.sl)&&lastPx<Math.max(pl.tp,pl.sl)?` <button class="link zpa" data-zpa="${z.type}|${pl.tp.toFixed(2)}|${pl.sl.toFixed(2)}">🔔 Alert TP/SL</button>`:''}</small></span><span class="zd num">${dist}</span>${z.src==='you'?`<button class="icon" aria-label="Delete zone" data-zrm="${z.id}">✕</button>`:'<span></span>'}</li>`}).join('')
+    return`<li class="${isDim(z)?'dim':''}"><span class="zt ${z.type}">${z.type}${z.src==='auto'&&z.tfs?`<small class="ztf">${z.tfs[0]}</small>`:z.src==='you'?'<small class="ztf">Yours</small>':z.src==='ai'?'<small class="ztf">AI</small>':''}</span><span class="zr num">${fmtPx(z.from)} – ${fmtPx(z.to)}<small>${srcLabel(z)}</small><small class="pl">Entry ${fmtPx(pl.e)}, SL ${fmtPx(pl.sl)}, TP ${fmtPx(pl.tp)} (${pl.rr.toFixed(1)}R)${lastPx!=null&&lastPx>Math.min(pl.tp,pl.sl)&&lastPx<Math.max(pl.tp,pl.sl)?` <button class="link zpa" data-zpa="${z.type}|${pl.tp.toFixed(2)}|${pl.sl.toFixed(2)}">🔔 Alert TP/SL</button>`:''}</small></span><span class="zd num${dist==='Price is inside'?' in':''}">${dist}</span>${z.src==='you'?`<button class="icon" aria-label="Delete zone" data-zrm="${z.id}">✕</button>`:'<span></span>'}</li>`}).join('')
     :'<li class="empty">No zones yet. Turn on auto zones, run an AI analysis with a price, or add your own below.</li>';
 }
 function renderBias(){
