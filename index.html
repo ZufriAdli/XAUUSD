@@ -666,6 +666,25 @@ ul.zones{padding:4px 14px}
 .hx-cd span.now{background:var(--foil);border-color:transparent;color:var(--on-gold)}.hx-cd span.now b{color:var(--on-gold)}
 .hx-cd .off{font-size:12px;color:var(--muted)}
 :root[data-theme="ivory"] .hx-cd span{background:rgba(0,0,0,.03)}
+.tv-open{display:inline-flex;align-items:center;gap:7px;text-decoration:none;white-space:nowrap}
+@media(max-width:640px){.ch-mode .tv-open{order:3;flex:1 1 100%;justify-content:center}}
+/* ---------- v59: news mode, fast move, held zones ---------- */
+.nm{padding:18px;border-color:var(--gold-fill)!important;background:linear-gradient(160deg,color-mix(in srgb,var(--gold-fill) 16%,transparent),transparent 60%),var(--glass)!important;position:relative;overflow:hidden}
+.nm-top{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)}
+.nm-top i{font-style:normal;display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--sell);margin-right:7px;animation:nmPulse 1.2s infinite}
+@keyframes nmPulse{50%{opacity:.25}}
+.nm h3{font-size:20px!important;margin:8px 0 2px}.nm .nm-sub{font-size:13px;color:var(--muted)}
+.nm-big{font-size:54px;font-weight:800;letter-spacing:-.04em;line-height:1;margin:14px 0 6px;font-variant-numeric:tabular-nums}
+.nm-big.up{color:var(--buy)}.nm-big.down{color:var(--sell)}.nm-big small{font-size:18px;font-weight:700;color:var(--muted);margin-left:8px;letter-spacing:0}
+.nm-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.nm-row div{background:rgba(255,255,255,.04);border:1px solid var(--gb);border-radius:14px;padding:9px 10px;min-width:0}
+.nm-row b{display:block;font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.nm-row span{font-size:11px;color:var(--muted);font-weight:600}
+.nm-note{font-size:13px;margin:12px 0 0;color:var(--ink)}.nm-note b.up{color:var(--buy)}.nm-note b.down{color:var(--sell)}
+.nm .btn{margin-top:12px}
+:root[data-theme="ivory"] .nm-row div{background:rgba(0,0,0,.03)}
+#home-cards.two>#newsmode{grid-column:1/-1}
+#v-set .za .tg-spike-row{display:flex!important;flex-direction:row!important;justify-content:space-between!important;align-items:center!important;text-align:left;margin:0;gap:12px;padding:12px 0;border-top:1px solid var(--gb);font-size:14.5px;font-weight:550;color:var(--ink);width:100%}
+#v-set .tg-spike-row select{width:auto;max-width:60%}
 </style>
 <script>try{localStorage.removeItem('re:lockId');localStorage.removeItem('re:lockAfter')}catch(e){}</script>
 <script>(function(){var d=document.documentElement,t='abyss',M={plum:'abyss',wine:'abyss',espresso:'abyss',onyx:'sunset',navy:'nebula',emerald:'forest',ivory:'pearl'};try{t=JSON.parse(localStorage.getItem('re:theme'))||'abyss'}catch(e){}t=M[t]||t;d.dataset.theme=t==='pearl'?'ivory':'abyss';if(t!=='abyss')d.dataset.tone=t})()</script>
@@ -694,6 +713,7 @@ ul.zones{padding:4px 14px}
   <section class="view on" id="v-home">
     <p class="tagline"><b>Know where gold is heading before the news.</b> High-impact USD releases in Malaysia time, alerts before each one, and an AI read on XAUUSD.</p>
     <div id="home-cards">
+    <section class="card-like nm" id="newsmode" hidden aria-live="polite"></section>
     <section class="hx stage-like card-like" data-card="hero" style="border-radius:var(--r)">
       <div class="hx-pair"><span class="hx-coin">Au</span>XAU/USD<span style="color:var(--ph)">· spot gold</span><span class="hx-live off" id="hx-live"><i></i>Connecting</span></div>
       <div class="hx-px num" id="hx-px">—</div>
@@ -845,6 +865,7 @@ ul.zones{padding:4px 14px}
         <button class="btn small ghost" data-cm="tv">Live chart</button>
         <button class="btn small ghost" data-cm="zones">Zones chart</button>
       </div>
+      <a class="btn small tv-open" id="tv-open" href="https://www.tradingview.com/chart/" target="_blank" rel="noopener"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>Open in TradingView</a>
       <label class="tvsym">Price from
         <select id="tv-sym">
           <option value="OANDA:XAUUSD">OANDA</option>
@@ -972,7 +993,10 @@ ul.zones{padding:4px 14px}
         <label class="sw za-main"><input type="checkbox" id="tg-zones"> Zone alerts</label>
         <label class="sw za-main"><input type="checkbox" id="tg-rep"> After-news report</label>
         <label class="sw za-main"><input type="checkbox" id="tg-sweep"> Liquidity sweeps (PDH/PDL, Asia high/low)</label>
-        <span class="muted" style="font-size:13px">Zone alerts use the timeframe and zone choice on the Chart page. The after-news report comes 15 minutes after each release: how many pips gold moved and whether your bias was right (your accuracy updates by itself).</span>
+        <label class="sw za-main"><input type="checkbox" id="tg-react"> First reaction 1 minute after each release</label>
+        <label class="sw za-main"><input type="checkbox" id="tg-recap"> Day recap at the New York close (5–6 am Malaysia)</label>
+        <label class="za-main tg-spike-row">Fast move alert<select id="tg-spike" aria-label="Fast move alert"><option value="0">Off</option><option value="2">$2 in 1 minute</option><option value="3">$3 in 1 minute</option><option value="5">$5 in 1 minute</option><option value="8">$8 in 1 minute</option></select></label>
+        <span class="muted" style="font-size:13px">Zone alerts use the timeframe and zone choice on the Chart page. On Telegram each zone alert has buttons to quiet zone alerts for 15 minutes or ignore that zone for the rest of the day. The after-news report comes 15 minutes after each release: how many pips gold moved and whether your bias was right (your accuracy updates by itself).</span>
       </div>
       <h4 class="sub-h">Telegram</h4>
       <div class="cta">
@@ -1786,7 +1810,7 @@ function autoZones(d){
       const dist=dir==='Buy'?Math.max(0,px-g.to):Math.max(0,g.from-px);
       if(dist>8*a)return;
       const i0=Math.min(...g.m.map(c=>c.i));
-      out.push({type:dir,from:Math.round(g.from*100)/100,to:Math.round(g.to*100)/100,score,tags:kinds,i:i0,t:d[i0].time,fresh:best.touches===0,src:'auto',
+      out.push({type:dir,from:Math.round(g.from*100)/100,to:Math.round(g.to*100)/100,score,tags:kinds,i:i0,t:d[i0].time,fresh:best.touches===0,held:Math.max(...g.m.map(c=>c.touches||0)),src:'auto',
         grade:score>=6?'Strong':score>=4?'Good':'Weak'});
     });
   });
@@ -1829,7 +1853,7 @@ function allZones(){
   if(aiFresh())z.push(...aiZones.zones.map(x=>({...x,src:'ai'})));
   z.push(...userZones.map(x=>({...x,src:'you'})));return z;
 }
-const srcLabel=z=>z.src==='auto'?`${z.tfs?z.tfs[0]+' · ':''}${z.grade}: ${z.tags.join(' + ')}${z.fresh?', untested':''}`:z.src==='ai'?`AI, ${esc(aiZones.ev)}`:'Yours'+(z.note?`, ${esc(z.note)}`:'');
+const srcLabel=z=>z.src==='auto'?`${z.tfs?z.tfs[0]+' · ':''}${z.grade}: ${z.tags.join(' + ')}${z.held?`, held ${z.held}×`:z.fresh?', untested':''}`:z.src==='ai'?`AI, ${esc(aiZones.ev)}`:'Yours'+(z.note?`, ${esc(z.note)}`:'');
 const isDim=z=>biasFresh()&&z.type!==lastBias.dir;
 let zoneTfs=store.get('zoneTfs',['5m','15m','1h']);const mtfCache={};
 function mtfReset(){for(const k in mtfCache)delete mtfCache[k];try{updateMTF(true)}catch(e){}}let mtfBusy=false,mtfAgain=false;
@@ -2322,7 +2346,7 @@ function paCheck(px){if(!pxAlerts.length||px==null||!goldOpen(Date.now()))return
   else if(Date.now()-(paCheck.r||0)>2000){paCheck.r=Date.now();paRender()}}
 // alerts the robot already rang are removed here too
 /* ---------- shared with your other devices through the robot ---------- */
-const sharedNow=()=>({brokerTz:BROKER_TZ,sweepOn:tgc.sweep!==false,pip,spread,quietNews,lead,which:za.which,tfs:zoneTfs,newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false});
+const sharedNow=()=>({brokerTz:BROKER_TZ,sweepOn:tgc.sweep!==false,spike:tgc.spike==null?3:+tgc.spike,recapOn:tgc.recap!==false,reactOn:tgc.react!==false,pip,spread,quietNews,lead,which:za.which,tfs:zoneTfs,newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false});
 let setAt=store.get('setAt',0),lastShared=null;
 function sharedMark(){const j=JSON.stringify(sharedNow());if(lastShared===null){lastShared=store.get('lastShared',j);}if(j!==lastShared){lastShared=j;setAt=Date.now();store.set('setAt',setAt);store.set('lastShared',j)}}
 function applyShared(sh){if(!sh)return;let ch=false;
@@ -2340,7 +2364,7 @@ function applyShared(sh){if(!sh)return;let ch=false;
     if([5,15,30,60].includes(+t.lead)){lead=+t.lead;store.set('lead',lead);$('#s-lead').value=String(lead)}
     if(t.which==='good'||t.which==='all'){za.which=t.which;store.set('zoneAlerts',za);zaSync()}
     if(Array.isArray(t.tfs)&&t.tfs.length&&JSON.stringify(t.tfs)!==JSON.stringify(zoneTfs)){zoneTfs=t.tfs.filter(x=>TF_SEC[x]);store.set('zoneTfs',zoneTfs);syncZtf();try{updateMTF(true)}catch(e){}}
-    if(typeof t.newsOn==='boolean')tgc.news=t.newsOn;if(typeof t.zonesOn==='boolean')tgc.zones=t.zonesOn;if(typeof t.reportOn==='boolean')tgc.rep=t.reportOn;if(typeof t.sweepOn==='boolean')tgc.sweep=t.sweepOn;tgSave();tgFill();
+    if(typeof t.newsOn==='boolean')tgc.news=t.newsOn;if(typeof t.zonesOn==='boolean')tgc.zones=t.zonesOn;if(typeof t.reportOn==='boolean')tgc.rep=t.reportOn;if(typeof t.sweepOn==='boolean')tgc.sweep=t.sweepOn;if(typeof t.recapOn==='boolean')tgc.recap=t.recapOn;if(typeof t.reactOn==='boolean')tgc.react=t.reactOn;if([0,2,3,5,8].includes(+t.spike)&&t.spike!=null)tgc.spike=+t.spike;tgSave();tgFill();
     setAt=sh.setAt;store.set('setAt',setAt);lastShared=JSON.stringify(sharedNow());store.set('lastShared',lastShared);
     try{renderCalKeep();renderZoneList();zaStatus()}catch(e){}ch=true}
   if(ch)tgLastHash=JSON.stringify({...tgPayload(),autoZ:0,autoAt:0}); // what we now hold is what the robot holds
@@ -2430,7 +2454,7 @@ function tgPayload(){
   const adj=offMode()==='broker'&&spotOff&&spotOff.src===SOURCES[srcIdx].name?Math.round((pxOffset.val-spotOff.val)*100)/100:0;
   const biasFor=e=>{const h=history.find(h=>h.evId===e.id&&(h.dir==='Buy'||h.dir==='Sell'));if(h)return{dir:h.dir};
     return lastBias&&lastBias.evId===e.id&&(lastBias.dir==='Buy'||lastBias.dir==='Sell')?{dir:lastBias.dir}:null};
-  return{setAt,tomb,brokerTz:BROKER_TZ,sweepOn:tgc.sweep!==false,newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false,quietNews,pip,spread,lead,which:za.which,tf:chTf,adj,
+  return{setAt,tomb,brokerTz:BROKER_TZ,sweepOn:tgc.sweep!==false,spike:tgc.spike==null?3:+tgc.spike,recapOn:tgc.recap!==false,reactOn:tgc.react!==false,newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false,quietNews,pip,spread,lead,which:za.which,tf:chTf,adj,
     events:events.filter(e=>e.at>now-3*36e5&&e.at<now+60*864e5&&(e.type!=='Claims'||showClaims)).map(e=>{const h=head(e);return{key:e.key||e.id,type:e.type,name:e.name||NAMES[e.type]||e.type,at:e.at,fc:h.fc||'',pv:h.pv||'',bias:biasFor(e)}}),
     pxAlerts:pxAlerts.map(a=>({id:a.id,px:a.px,dir:a.dir,note:a.note,warn:a.warn,repeat:a.repeat})),
     userZones,aiZones:aiFresh()?{...aiZones,until:biasUntil(aiZones)}:null,
@@ -2448,10 +2472,10 @@ async function tgSync(force){
 }
 // changes are batched; at most one sync a minute unless forced
 function tgSyncSoon(ms=4000){if(!tgReady())return;clearTimeout(tgTimer);const wait=Math.max(ms,6e4-(Date.now()-tgc.lastSync));tgTimer=setTimeout(()=>tgSync(false),Math.min(wait,6e4))}
-function tgFill(){$('#tg-url').value=tgc.url;$('#tg-secret').value=tgc.secret;$('#tg-news').checked=tgc.news;$('#tg-zones').checked=tgc.zones;$('#tg-rep').checked=tgc.rep!==false;$('#tg-sweep').checked=tgc.sweep!==false;tgShow()}
+function tgFill(){$('#tg-url').value=tgc.url;$('#tg-secret').value=tgc.secret;$('#tg-news').checked=tgc.news;$('#tg-zones').checked=tgc.zones;$('#tg-rep').checked=tgc.rep!==false;$('#tg-sweep').checked=tgc.sweep!==false;$('#tg-react').checked=tgc.react!==false;$('#tg-recap').checked=tgc.recap!==false;$('#tg-spike').value=String(tgc.spike==null?3:tgc.spike);tgShow()}
 const tgRead=()=>{tgc.url=$('#tg-url').value.trim();tgc.secret=$('#tg-secret').value.trim();tgSave()};
 $('#tg-url').onchange=$('#tg-secret').onchange=()=>{tgRead();tgc.linked=false;tgSave();tgShow();pushShow()};
-$('#tg-news').onchange=$('#tg-zones').onchange=$('#tg-rep').onchange=$('#tg-sweep').onchange=()=>{tgc.news=$('#tg-news').checked;tgc.zones=$('#tg-zones').checked;tgc.rep=$('#tg-rep').checked;tgc.sweep=$('#tg-sweep').checked;tgSave();tgSync(true)};
+$('#tg-news').onchange=$('#tg-zones').onchange=$('#tg-rep').onchange=$('#tg-sweep').onchange=$('#tg-react').onchange=$('#tg-recap').onchange=$('#tg-spike').onchange=()=>{tgc.news=$('#tg-news').checked;tgc.zones=$('#tg-zones').checked;tgc.rep=$('#tg-rep').checked;tgc.sweep=$('#tg-sweep').checked;tgc.react=$('#tg-react').checked;tgc.recap=$('#tg-recap').checked;tgc.spike=+$('#tg-spike').value;tgSave();tgSync(true)};
 
 /* ---------- after-news results from the robot: show the move, grade saved analyses ---------- */
 function gradeHistory(){
@@ -2740,6 +2764,38 @@ if('serviceWorker' in navigator&&isSecureContext&&location.protocol!=='file:'){n
     if(!goldOpen(now))h='<span class="off">Candles paused, market closed</span>';
     else h=TF.map(([n,P])=>{const left=Math.ceil((now+1)/P)*P-now;return`<span class="${left<=5e3?'now':left<=3e4||(P>=9e5&&left<=12e4)?'soon':''}">${n} <b>${fmt(left)}</b></span>`}).join('');
     if(h!==last){el.innerHTML=h;last=h}}
+  setInterval(draw,1000);document.addEventListener('visibilitychange',draw);draw()})();
+
+/* Open the same symbol and timeframe in TradingView itself (app or site), where you are signed in with your own indicators and layouts */
+(function(){const a=$('#tv-open');if(!a)return;const IV={'1m':'1','5m':'5','15m':'15','1h':'60','4h':'240','1d':'D'};
+  const upd=()=>{a.href=`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvSym||'OANDA:XAUUSD')}&interval=${IV[chTf]||'5'}`};
+  upd();a.addEventListener('pointerdown',upd);a.addEventListener('focus',upd);a.addEventListener('click',upd)})();
+
+/* ---------- v59: news mode on Home: from 5 minutes before a big release to 15 minutes after ---------- */
+(function(){let nmPre=store.get('nmPre',{}),last='';const el=$('#newsmode');if(!el)return;
+  const mmss=ms=>{const t=Math.max(0,Math.round(ms/1e3));return`${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`};
+  function draw(){if(document.hidden||!$('#v-home').classList.contains('on'))return;const now=Date.now();
+    const e=events.find(x=>QUIET_TYPES.has(x.type)&&now>=x.at-5*6e4&&now<=x.at+15*6e4);
+    if(!e){if(!el.hidden){el.hidden=true;el.innerHTML='';last=''}return}
+    const h=head(e),px=lastPx,pre=nmPre[e.id],b=history.find(x=>x.evId===e.id&&(x.dir==='Buy'||x.dir==='Sell'))||(lastBias&&lastBias.evId===e.id?lastBias:null);
+    let html;
+    if(now<e.at){ // before: countdown, remember the price just before the release
+      if(px!=null){nmPre[e.id]={p:px,hi:px,lo:px,at:now};for(const k in nmPre)if(now-nmPre[k].at>864e5)delete nmPre[k];store.set('nmPre',nmPre)}
+      html=`<div class="nm-top"><span><i></i>News mode</span><span>${fmtTime.format(e.at)} MYT</span></div><h3>${esc(e.name||e.type)}</h3><div class="nm-sub">Out in</div>
+        <div class="nm-big">${mmss(e.at-now)}</div>
+        <div class="nm-row"><div><span>Forecast</span><b>${esc(h.fc||'—')}</b></div><div><span>Previous</span><b>${esc(h.pv||'—')}</b></div><div><span>Gold now</span><b>${px!=null?fmtPx(px):'—'}</b></div></div>
+        <p class="nm-note">${quietNews?'Zone alerts pause from 5 minutes before to 10 minutes after. ':''}${b?`Your bias: <b class="${b.dir==='Buy'?'up':'down'}">${b.dir}</b>.`:'No bias yet.'}</p>
+        <button class="btn small gold" type="button" data-nm-an="${e.id}">${b?'Review analysis':'Analyse now'}</button>`}
+    else{ // after: how far gold moved since the release
+      if(pre&&px!=null){pre.hi=Math.max(pre.hi,px);pre.lo=Math.min(pre.lo,px);pre.at=now;store.set('nmPre',nmPre)}
+      const d=pre&&px!=null?px-pre.p:null,up=d!=null&&d>=0,pp=x=>Math.round(Math.abs(x)/pip);
+      html=`<div class="nm-top"><span><i></i>${esc(e.type)} is out</span><span>${mmss(now-e.at)} ago</span></div><h3>${esc(e.name||e.type)}</h3><div class="nm-sub">Gold since the release</div>
+        <div class="nm-big ${d==null?'':up?'up':'down'}">${d==null?'—':`${up?'▲':'▼'} ${pp(d)}<small>pips · ${up?'+':'−'}$${Math.abs(d).toFixed(2)}</small>`}</div>
+        <div class="nm-row"><div><span>Before</span><b>${pre?fmtPx(pre.p):'—'}</b></div><div><span>High / low</span><b>${pre?`+${pp(pre.hi-pre.p)} / −${pp(pre.p-pre.lo)}`:'—'}</b></div><div><span>Gold now</span><b>${px!=null?fmtPx(px):'—'}</b></div></div>
+        <p class="nm-note">${d==null?'Open the app before a release to measure the move.':Math.abs(d)<1?'Small reaction so far.':up?'Gold up: the market reads it as bad for the USD.':'Gold down: the market reads it as good for the USD.'}${b&&d!=null&&Math.abs(d)>=1?` Your bias <b class="${b.dir==='Buy'?'up':'down'}">${b.dir}</b> is ${(b.dir==='Buy')===up?'with':'against'} the move.`:''}</p>
+        <button class="btn small ghost" type="button" data-nm-an="${e.id}">Fill in the actual and analyse</button>`}
+    if(html!==last){el.innerHTML=html;last=html}el.hidden=false}
+  el.addEventListener('click',ev=>{const b=ev.target.closest('[data-nm-an]');if(b)openAnalysis(b.dataset.nmAn)});
   setInterval(draw,1000);document.addEventListener('visibilitychange',draw);draw()})();
 
 })();
