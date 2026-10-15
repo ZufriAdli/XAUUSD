@@ -685,6 +685,8 @@ ul.zones{padding:4px 14px}
 #home-cards.two>#newsmode{grid-column:1/-1}
 #v-set .za .tg-spike-row{display:flex!important;flex-direction:row!important;justify-content:space-between!important;align-items:center!important;text-align:left;margin:0;gap:12px;padding:12px 0;border-top:1px solid var(--gb);font-size:14.5px;font-weight:550;color:var(--ink);width:100%}
 #v-set .tg-spike-row select{width:auto;max-width:60%}
+.jt-sw{display:flex!important;margin:0 0 14px;color:var(--ink)!important;font-weight:600}
+h4.jt{font-size:14px;margin:16px 0 8px;color:var(--gold);font-weight:700}h4.jt:first-of-type{margin-top:4px}
 </style>
 <script>try{localStorage.removeItem('re:lockId');localStorage.removeItem('re:lockAfter')}catch(e){}</script>
 <script>(function(){var d=document.documentElement,t='abyss',M={plum:'abyss',wine:'abyss',espresso:'abyss',onyx:'sunset',navy:'nebula',emerald:'forest',ivory:'pearl'};try{t=JSON.parse(localStorage.getItem('re:theme'))||'abyss'}catch(e){}t=M[t]||t;d.dataset.theme=t==='pearl'?'ivory':'abyss';if(t!=='abyss')d.dataset.tone=t})()</script>
@@ -1324,13 +1326,14 @@ let swReg=null;
 /* ---------- next-event clock + reminders ---------- */
 function tick(){
   const now=Date.now();const nx=events.find(e=>e.at>now&&shown(e));
-  if(nx){$('#nx-name').textContent=nx.name;$('#nx-when').textContent=fmt.format(nx.at)+' MYT';const ms=nx.at-now;
+  if(nx){const same=events.filter(e=>shown(e)&&Math.round(e.at/6e4)===Math.round(nx.at/6e4));$('#nx-name').textContent=same.length>1?same.map(e=>e.type).join(' + '):nx.name;$('#nx-when').textContent=fmt.format(nx.at)+' MYT';const ms=nx.at-now;
     $('#cd-d').textContent=pad(Math.floor(ms/864e5));$('#cd-h').textContent=pad(Math.floor(ms%864e5/36e5));$('#cd-m').textContent=pad(Math.floor(ms%36e5/6e4));$('#cd-s').textContent=pad(Math.floor(ms%6e4/1e3));
     $('#nx-an').dataset.id=nx.id;$('#nx-an').hidden=false;const bl=$('#nx-bell');bl.hidden=false;bl.dataset.id=nx.id;bl.setAttribute('aria-pressed',nx.remind);bl.textContent=nx.remind?`Reminder on, ${lead} min before`:`Remind me ${lead} min before`}
   else{$('#nx-name').textContent='—';$('#nx-when').textContent='No upcoming events. Add one in the calendar.';$('#nx-an').hidden=true;$('#nx-bell').hidden=true}
   $$('[data-left]').forEach(td=>{const e=events.find(x=>x.id===td.dataset.left);if(e)td.textContent=left(e.at-now)});
   let changed=false;
-  events.forEach(e=>{if(e.remind&&!e.fired&&e.at-now<=lead*6e4&&e.at>now){e.fired=true;changed=true;notify(`${e.type} in ${lead} minutes`,`${e.name} is released at ${fmtShort.format(e.at)}. Check your bias analysis.`)}});
+  const due=events.filter(e=>e.remind&&!e.fired&&e.at-now<=lead*6e4&&e.at>now),grp=new Map();due.forEach(e=>{e.fired=true;changed=true;const k=Math.round(e.at/6e4);if(!grp.has(k))grp.set(k,[]);grp.get(k).push(e)});
+  grp.forEach(g=>notify(`${g.map(e=>e.type).join(' + ')} in ${lead} minutes`,`${g.map(e=>e.name).join(', ')} ${g.length>1?'are':'is'} released at ${fmtShort.format(g[0].at)}. Check your bias analysis.`));
   if(changed)saveEv();
 }
 $('#nx-an').onclick=()=>openAnalysis($('#nx-an').dataset.id);
@@ -1338,13 +1341,20 @@ $('#nx-bell').onclick=()=>{const ev=events.find(x=>x.id===$('#nx-bell').dataset.
 
 /* ---------- analysis ---------- */
 function renderEvSelect(){const sel=$('#f-ev'),cur=sel.value;sel.innerHTML=events.filter(e=>shown(e)||e.id===cur).map(e=>`<option value="${e.id}">${esc(e.type)}, ${fmtShort.format(e.at)}</option>`).join('');if(cur&&events.some(e=>e.id===cur))sel.value=cur;else{const nx=events.find(e=>e.at>Date.now());if(nx)sel.value=nx.id}fillFromEv()}
+const sibsOf=ev=>events.filter(e=>e.id!==ev.id&&shown(e)&&Math.round(e.at/6e4)===Math.round(ev.at/6e4)&&(compsOf(e.type).length||TONE_TYPES.has(e.type)));
+let jointAn=store.get('jointAn',true);
+function compsHtml(ev){
+  const v=vals(ev),inp=(c,f,ph,x)=>`<input data-ev="${ev.id}" data-k="${c.k}" data-f="${f}" value="${esc(x[f]||'')}" placeholder="${ph}" aria-label="${esc(ev.type)} ${esc(c.l)} ${ph.toLowerCase()}">`;
+  const cs=compsOf(ev.type);
+  return'<div class="comps">'+(cs.length?'<span class="h h0">Data</span><span class="h">Forecast</span><span class="h">Previous</span><span class="h">Actual</span>':'')+
+    cs.map(c=>{const x=v[c.k]||{};return`<span class="n">${esc(c.l)}${c.s<0?'<small>inverted: higher = weaker USD</small>':''}</span>${inp(c,'fc','Forecast',x)}${inp(c,'pv','Previous',x)}${inp(c,'ac','Actual',x)}`}).join('')+
+    (TONE_TYPES.has(ev.type)?`<span class="n">Statement tone<small class="hint">your read of the statement, minutes or speech</small></span><select data-ev="${ev.id}" data-tone aria-label="Statement tone"><option value="">Not out yet</option>${Object.keys(TONE).map(t=>`<option${ev.tone===t?' selected':''}>${t}</option>`).join('')}</select>`:'')+'</div>'}
 function fillFromEv(){
   const ev=events.find(e=>e.id===$('#f-ev').value),box=$('#f-comps');if(!ev){box.innerHTML='';return}
-  const v=vals(ev),inp=(c,f,ph,x)=>`<input data-k="${c.k}" data-f="${f}" value="${esc(x[f]||'')}" placeholder="${ph}" aria-label="${esc(c.l)} ${ph.toLowerCase()}">`;
-  const cs=compsOf(ev.type);
-  box.innerHTML='<div class="comps">'+(cs.length?'<span class="h h0">Data</span><span class="h">Forecast</span><span class="h">Previous</span><span class="h">Actual</span>':'')+
-    cs.map(c=>{const x=v[c.k]||{};return`<span class="n">${esc(c.l)}${c.s<0?'<small>inverted: higher = weaker USD</small>':''}</span>${inp(c,'fc','Forecast',x)}${inp(c,'pv','Previous',x)}${inp(c,'ac','Actual',x)}`}).join('')+
-    (TONE_TYPES.has(ev.type)?`<span class="n">Statement tone<small class="hint">your read of the statement, minutes or speech</small></span><select data-tone aria-label="Statement tone"><option value="">Not out yet</option>${Object.keys(TONE).map(t=>`<option${ev.tone===t?' selected':''}>${t}</option>`).join('')}</select>`:'')+'</div>';
+  const sibs=sibsOf(ev),joint=jointAn&&sibs.length;
+  box.innerHTML=(sibs.length?`<label class="sw jt-sw"><input type="checkbox" id="f-joint"${jointAn?' checked':''}> Analyse together with ${esc(sibs.map(e=>e.type).join(' + '))} (out at the same time)</label>`:'')+
+    (joint?[ev,...sibs].map(e=>`<h4 class="jt">${esc(e.name||e.type)}</h4>`+compsHtml(e)).join(''):compsHtml(ev));
+  const j=$('#f-joint');if(j)j.onchange=()=>{curForm();jointAn=j.checked;store.set('jointAn',jointAn);fillFromEv()};
 }
 $('#f-ev').onchange=fillFromEv;
 function openAnalysis(id){go('an');$('#f-ev').value=id;fillFromEv();$('#result').innerHTML=''}
@@ -1386,10 +1396,10 @@ function ruleCheck(ev,rows,tone){
     :`Overall the ${ev.type} ${what}, so the USD tends to ${dir==='Sell'?'strengthen and gold to fall':'weaken and gold to rise'}.${mixed?' Some signals are mixed, so confidence is reduced.':''}`;
   return{dir,conf,usd:dir==='Sell'?'Stronger':'Weaker',summary,scen,src:'Quick check'};
 }
-function showResult(r,ev){
+function showResult(r,ev,evs){evs=evs&&evs.length?evs:[ev];const nm=evs.map(e=>e.type).join(' + ');
   const el=$('#result');
   if(r.error){el.innerHTML=`<div class="result"><p class="empty">${esc(r.error)}</p></div>`;el.scrollIntoView({behavior:'smooth',block:'start'});return}
-  el.innerHTML=`<div class="result"><div class="src">${esc(r.src)} for ${esc(ev.type)}</div>
+  el.innerHTML=`<div class="result"><div class="src">${esc(r.src)} for ${esc(nm)}</div>
    <div class="verdict"><span class="dir ${r.dir}">${r.dir}</span><span class="vmeta">XAUUSD<small>USD ${esc(String(r.usd).toLowerCase())}</small></span></div>
    <div class="conf"><span>Confidence</span><b class="num">${r.conf}%</b></div>
    <div class="meter"><i style="width:${r.conf}%"></i></div>
@@ -1399,17 +1409,30 @@ function showResult(r,ev){
    ${r.zones&&r.zones.length?`<p class="levels"><b>Zones:</b> ${r.zones.map(z=>`${z.type} ${fmtPx(z.from)}–${fmtPx(z.to)}`).join(', ')}</p>`:''}
    <div class="cta" style="margin-top:22px"><button class="btn small" id="save-an">Save to history</button><button class="btn small ghost" data-go="chart">${r.zones&&r.zones.length?'See zones on chart':'Open chart'}</button></div>
    <p class="fine">Not financial advice.</p></div>`;el.scrollIntoView({behavior:'smooth',block:'start'});
-  lastBias={dir:r.dir,conf:r.conf,type:ev.type,evId:ev.id,evAt:ev.at,src:r.src,t:Date.now()};store.set('lastBias',lastBias);if(typeof refreshZones==='function')refreshZones();
-  $('#save-an').onclick=()=>{history.unshift({id:uid(),t:Date.now(),evId:ev.id,type:ev.type,evAt:ev.at,dir:r.dir,conf:r.conf,src:r.src,summary:r.summary,outcome:null});gradeHistory();try{tgSyncSoon()}catch(e){}store.set('history',history);renderHist();renderRecord();toast('Saved to history');$('#save-an').disabled=true};
+  lastBias={dir:r.dir,conf:r.conf,type:nm,evId:ev.id,evIds:evs.map(e=>e.id),evAt:ev.at,src:r.src,t:Date.now()};store.set('lastBias',lastBias);if(typeof refreshZones==='function')refreshZones();
+  $('#save-an').onclick=()=>{evs.slice().reverse().forEach(e=>history.unshift({id:uid(),t:Date.now(),evId:e.id,type:e.type,evAt:e.at,dir:r.dir,conf:r.conf,src:evs.length>1?r.src+' ('+nm+')':r.src,summary:r.summary,outcome:null}));gradeHistory();try{tgSyncSoon()}catch(e){}store.set('history',history);renderHist();renderRecord();toast('Saved to history');$('#save-an').disabled=true};
 }
 function curForm(){
-  const ev=events.find(e=>e.id===$('#f-ev').value);let rows=[];
-  if(ev){const v=vals(ev);$$('#f-comps input').forEach(i=>{const k=i.dataset.k;v[k]=v[k]||{};v[k][i.dataset.f]=i.value.trim()});const ts=$('#f-comps [data-tone]');if(ts)ev.tone=ts.value;setHead(ev);saveEv();renderCalKeep();
-    rows=compsOf(ev.type).map(c=>({...c,fc:'',pv:'',ac:'',...(v[c.k]||{})}))}
-  return{ev,rows,tone:ev&&TONE_TYPES.has(ev.type)?ev.tone||'':'',px:$('#f-px').value.trim(),ctx:$('#f-ctx').value.trim()};
+  const ev=events.find(e=>e.id===$('#f-ev').value);let evs=[],rowsBy={},toneBy={};
+  if(ev){evs=[ev,...(jointAn?sibsOf(ev):[])].filter(e=>e===ev||$(`#f-comps [data-ev="${e.id}"]`));
+    for(const e of evs){const v=vals(e);$$(`#f-comps input[data-ev="${e.id}"]`).forEach(i=>{const k=i.dataset.k;v[k]=v[k]||{};v[k][i.dataset.f]=i.value.trim()});
+      const ts=$(`#f-comps [data-tone][data-ev="${e.id}"]`);if(ts)e.tone=ts.value;setHead(e);
+      rowsBy[e.id]=compsOf(e.type).map(c=>({...c,fc:'',pv:'',ac:'',...(v[c.k]||{})}));toneBy[e.id]=TONE_TYPES.has(e.type)?e.tone||'':''}
+    saveEv();renderCalKeep()}
+  return{ev,evs,rowsBy,toneBy,rows:ev?rowsBy[ev.id]:[],tone:ev?toneBy[ev.id]:'',px:$('#f-px').value.trim(),ctx:$('#f-ctx').value.trim()};
+}
+/* several releases at once: each gets its own quick check, then one combined bias */
+function ruleGroup(f){if(f.evs.length<2)return ruleCheck(f.ev,f.rows,f.tone);
+  const res=f.evs.map(e=>({e,r:ruleCheck(e,f.rowsBy[e.id],f.toneBy[e.id])})),ok=res.filter(x=>!x.r.error);
+  if(!ok.length)return{error:'Enter at least one forecast figure for one of the releases.'};
+  const sg=x=>(x.r.dir==='Sell'?1:-1)*Math.max(1,x.r.conf-40),sum=ok.reduce((a,x)=>a+sg(x),0),dir=sum>0?'Sell':'Buy',split=new Set(ok.map(x=>x.r.dir)).size>1;
+  const conf=split?Math.max(40,Math.min(58,45+Math.round(Math.abs(sum)/ok.length))):Math.min(85,Math.max(...ok.map(x=>x.r.conf))+(ok.length>1?4:0));
+  const parts=ok.map(x=>`${x.e.type}: ${x.r.dir} (${x.r.conf}%)`).join(' · ');
+  const summary=`${parts}. ${split?'The releases point different ways, so expect a choppy two-way reaction; the bigger surprise usually wins.':ok.length>1?'They point the same way, which usually makes the move stronger.':''}${res.length>ok.length?` No figures yet for ${res.filter(x=>x.r.error).map(x=>x.e.type).join(', ')}.`:''}`;
+  return{dir,conf,usd:dir==='Sell'?'Stronger':'Weaker',summary,scen:ok.flatMap(x=>(x.r.scen||[]).slice(0,3).map(s=>[x.e.type+': '+s[0],s[1]])),src:ok[0].r.src+', combined'};
 }
 function renderCalKeep(){const v=$('#f-ev').value;renderCal();$('#f-ev').value=v}
-$('#run-rule').onclick=()=>{const f=curForm();if(!f.ev){toast('No event selected');return}showResult(ruleCheck(f.ev,f.rows,f.tone),f.ev)};
+$('#run-rule').onclick=()=>{const f=curForm();if(!f.ev){toast('No event selected');return}showResult(ruleGroup(f),f.ev,f.evs)};
 
 let ctrl=null;
 const DEFAULT_MODELS=['gemini-3.8-flash','gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash','gemini-3.5-flash-lite','gemini-3.1-flash-lite'];
@@ -1447,12 +1470,11 @@ $('#run-ai').onclick=async()=>{
   if(!pxUsed){const lp=await livePrice().catch(()=>null);if(lp)pxUsed=lp.toFixed(2)+' (live price from the chart feed)'}
   const pxNum=parseNum(pxUsed);
   const prompt=`You are a macroeconomic market analyst. Give an XAUUSD (gold vs USD) bias analysis for the following US data release. Answer in English. You MUST choose Buy or Sell — never Neutral.
-Event: ${f.ev.type} (${f.ev.name})
+${f.evs.length>1?`Events released at the same time (weigh them together and give ONE combined bias): ${f.evs.map(e=>e.type+' ('+e.name+')').join(', ')}`:`Event: ${f.ev.type} (${f.ev.name})`}
 Release time: ${new Date(f.ev.at).toISOString()} (${fmt.format(f.ev.at)} MYT)
 Current time: ${new Date().toISOString()} (${fmt.format(Date.now())} MYT)
 Status: ${f.ev.at<=Date.now()?'already released':'not released yet'}
-Data (first line is the headline figure):
-${f.rows.map(r=>`- ${r.l}: forecast ${r.fc||'none'}, previous ${r.pv||'none'}, actual ${r.ac||'not released yet'}${r.s<0?' (note: higher figure = weaker economy = weaker USD)':''}`).join('\n')}
+${f.evs.map(e=>`${f.evs.length>1?e.type+' data':'Data'} (first line is the headline figure):\n`+f.rowsBy[e.id].map(r=>`- ${r.l}: forecast ${r.fc||'none'}, previous ${r.pv||'none'}, actual ${r.ac||'not released yet'}${r.s<0?' (note: higher figure = weaker economy = weaker USD)':''}`).join('\n')).join('\n')}
 ${TONE_TYPES.has(f.ev.type)?`Statement/speech tone (user's read): ${f.tone||'not out yet'}\nNote: for this event the market reacts mostly to the tone, rate path and (for FOMC) the dot plot and press conference versus expectations, not just the headline rate.\n`:''}Current XAUUSD price: ${pxUsed||'not given'}
 ${autoZ.length?`Nearby zones (timeframe, side, range, why): ${autoZ.map(z=>`${z.tfs?z.tfs[0]:''} ${z.type} ${z.from}-${z.to} (${z.tags.join('+')}, ${z.grade.toLowerCase()})`).join('; ')}\n`:''}User context: ${f.ctx||'none'}
 
@@ -1489,12 +1511,12 @@ For "zones": if a current price is given, give 1-2 Buy zones below the price and
     const r=data;
     let dir=['Buy','Sell'].includes(r.dir)?r.dir:null;
     // if the model still answers Neutral, derive the side from its USD view, else from the quick check
-    if(!dir)dir=/weak/i.test(r.usd||'')?'Buy':/strong/i.test(r.usd||'')?'Sell':ruleCheck(f.ev,f.rows,f.tone).dir||'Buy';
+    if(!dir)dir=/weak/i.test(r.usd||'')?'Buy':/strong/i.test(r.usd||'')?'Sell':ruleGroup(f).dir||'Buy';
     if(r.usd!=='Stronger'&&r.usd!=='Weaker')r.usd=dir==='Sell'?'Stronger':'Weaker';
     const zs=(Array.isArray(r.zones)?r.zones:[]).map(z=>{const a=parseNum(z&&z.from),b=parseNum(z&&z.to),t=/sell/i.test(z&&z.type)?'Sell':/buy/i.test(z&&z.type)?'Buy':null;
       return t&&a!==null&&b!==null&&a>0?{type:t,from:Math.min(a,b),to:Math.max(a,b)}:null}).filter(z=>z&&(!pxNum||Math.abs(z.from-pxNum)/pxNum<.1)).slice(0,4);
     if(zs.length){aiZones={t:Date.now(),ev:f.ev.type,evId:f.ev.id,evAt:f.ev.at,zones:zs};store.set('aiZones',aiZones)}
-    showResult({dir,conf:Math.max(0,Math.min(100,parseInt(r.conf)||0)),usd:r.usd||'Neutral',summary:r.summary||'',levels:r.levels||'',scen:Array.isArray(r.scen)?r.scen.filter(s=>Array.isArray(s)&&s.length>=2).slice(0,4):[],zones:zs,src:'AI analysis'},f.ev);
+    showResult({dir,conf:Math.max(0,Math.min(100,parseInt(r.conf)||0)),usd:r.usd||'Neutral',summary:r.summary||'',levels:r.levels||'',scen:Array.isArray(r.scen)?r.scen.filter(s=>Array.isArray(s)&&s.length>=2).slice(0,4):[],zones:zs,src:'AI analysis'},f.ev,f.evs);
   }catch(err){
     if(err&&(err.code==='cancelled'||err.name==='AbortError'))return;
     const msg=err&&err.code==='rate_limited'?'Free AI limit reached, try again shortly':err&&err.message?'AI error: '+err.message:'Could not connect to Gemini — check your internet';console.error('AI error',err);
@@ -2453,7 +2475,7 @@ function tgPayload(){
   const now=Date.now();
   const adj=offMode()==='broker'&&spotOff&&spotOff.src===SOURCES[srcIdx].name?Math.round((pxOffset.val-spotOff.val)*100)/100:0;
   const biasFor=e=>{const h=history.find(h=>h.evId===e.id&&(h.dir==='Buy'||h.dir==='Sell'));if(h)return{dir:h.dir};
-    return lastBias&&lastBias.evId===e.id&&(lastBias.dir==='Buy'||lastBias.dir==='Sell')?{dir:lastBias.dir}:null};
+    return lastBias&&(lastBias.evId===e.id||(lastBias.evIds||[]).includes(e.id))&&(lastBias.dir==='Buy'||lastBias.dir==='Sell')?{dir:lastBias.dir}:null};
   return{setAt,tomb,brokerTz:BROKER_TZ,sweepOn:tgc.sweep!==false,spike:tgc.spike==null?3:+tgc.spike,recapOn:tgc.recap!==false,reactOn:tgc.react!==false,newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false,quietNews,pip,spread,lead,which:za.which,tf:chTf,adj,
     events:events.filter(e=>e.at>now-3*36e5&&e.at<now+60*864e5&&(e.type!=='Claims'||showClaims)).map(e=>{const h=head(e);return{key:e.key||e.id,type:e.type,name:e.name||NAMES[e.type]||e.type,at:e.at,fc:h.fc||'',pv:h.pv||'',bias:biasFor(e)}}),
     pxAlerts:pxAlerts.map(a=>({id:a.id,px:a.px,dir:a.dir,note:a.note,warn:a.warn,repeat:a.repeat})),
@@ -2777,19 +2799,20 @@ if('serviceWorker' in navigator&&isSecureContext&&location.protocol!=='file:'){n
   function draw(){if(document.hidden||!$('#v-home').classList.contains('on'))return;const now=Date.now();
     const e=events.find(x=>QUIET_TYPES.has(x.type)&&now>=x.at-5*6e4&&now<=x.at+15*6e4);
     if(!e){if(!el.hidden){el.hidden=true;el.innerHTML='';last=''}return}
-    const h=head(e),px=lastPx,pre=nmPre[e.id],b=history.find(x=>x.evId===e.id&&(x.dir==='Buy'||x.dir==='Sell'))||(lastBias&&lastBias.evId===e.id?lastBias:null);
+    const same=events.filter(x=>QUIET_TYPES.has(x.type)&&Math.round(x.at/6e4)===Math.round(e.at/6e4)),nmName=same.length>1?same.map(x=>x.type).join(' + '):(e.name||e.type);
+    const h=head(e),px=lastPx,pre=nmPre[e.id],b=history.find(x=>x.evId===e.id&&(x.dir==='Buy'||x.dir==='Sell'))||(lastBias&&(lastBias.evId===e.id||(lastBias.evIds||[]).includes(e.id))?lastBias:null);
     let html;
     if(now<e.at){ // before: countdown, remember the price just before the release
       if(px!=null){nmPre[e.id]={p:px,hi:px,lo:px,at:now};for(const k in nmPre)if(now-nmPre[k].at>864e5)delete nmPre[k];store.set('nmPre',nmPre)}
-      html=`<div class="nm-top"><span><i></i>News mode</span><span>${fmtTime.format(e.at)} MYT</span></div><h3>${esc(e.name||e.type)}</h3><div class="nm-sub">Out in</div>
+      html=`<div class="nm-top"><span><i></i>News mode</span><span>${fmtTime.format(e.at)} MYT</span></div><h3>${esc(nmName)}</h3><div class="nm-sub">Out in</div>
         <div class="nm-big">${mmss(e.at-now)}</div>
-        <div class="nm-row"><div><span>Forecast</span><b>${esc(h.fc||'—')}</b></div><div><span>Previous</span><b>${esc(h.pv||'—')}</b></div><div><span>Gold now</span><b>${px!=null?fmtPx(px):'—'}</b></div></div>
+        <div class="nm-row">${same.length>1?same.slice(0,2).map(x=>{const hh=head(x);return`<div><span>${esc(x.type)}</span><b>${esc(hh.fc||'—')} / ${esc(hh.pv||'—')}</b></div>`}).join(''):`<div><span>Forecast</span><b>${esc(h.fc||'—')}</b></div><div><span>Previous</span><b>${esc(h.pv||'—')}</b></div>`}<div><span>Gold now</span><b>${px!=null?fmtPx(px):'—'}</b></div></div>
         <p class="nm-note">${quietNews?'Zone alerts pause from 5 minutes before to 10 minutes after. ':''}${b?`Your bias: <b class="${b.dir==='Buy'?'up':'down'}">${b.dir}</b>.`:'No bias yet.'}</p>
         <button class="btn small gold" type="button" data-nm-an="${e.id}">${b?'Review analysis':'Analyse now'}</button>`}
     else{ // after: how far gold moved since the release
       if(pre&&px!=null){pre.hi=Math.max(pre.hi,px);pre.lo=Math.min(pre.lo,px);pre.at=now;store.set('nmPre',nmPre)}
       const d=pre&&px!=null?px-pre.p:null,up=d!=null&&d>=0,pp=x=>Math.round(Math.abs(x)/pip);
-      html=`<div class="nm-top"><span><i></i>${esc(e.type)} is out</span><span>${mmss(now-e.at)} ago</span></div><h3>${esc(e.name||e.type)}</h3><div class="nm-sub">Gold since the release</div>
+      html=`<div class="nm-top"><span><i></i>${same.length>1?'News is':esc(e.type)+' is'} out</span><span>${mmss(now-e.at)} ago</span></div><h3>${esc(nmName)}</h3><div class="nm-sub">Gold since the release</div>
         <div class="nm-big ${d==null?'':up?'up':'down'}">${d==null?'—':`${up?'▲':'▼'} ${pp(d)}<small>pips · ${up?'+':'−'}$${Math.abs(d).toFixed(2)}</small>`}</div>
         <div class="nm-row"><div><span>Before</span><b>${pre?fmtPx(pre.p):'—'}</b></div><div><span>High / low</span><b>${pre?`+${pp(pre.hi-pre.p)} / −${pp(pre.p-pre.lo)}`:'—'}</b></div><div><span>Gold now</span><b>${px!=null?fmtPx(px):'—'}</b></div></div>
         <p class="nm-note">${d==null?'Open the app before a release to measure the move.':Math.abs(d)<1?'Small reaction so far.':up?'Gold up: the market reads it as bad for the USD.':'Gold down: the market reads it as good for the USD.'}${b&&d!=null&&Math.abs(d)>=1?` Your bias <b class="${b.dir==='Buy'?'up':'down'}">${b.dir}</b> is ${(b.dir==='Buy')===up?'with':'against'} the move.`:''}</p>
