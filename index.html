@@ -1182,6 +1182,10 @@ function syncEvents(){
 }
 syncEvents();
 let history=store.get('history',[]);
+{const out=[];for(const h of history){const m=/\(([^)]+ \+ [^)]+)\)$/.exec(h.src||''),p=out[out.length-1];
+    if(m&&p&&p.evAt===h.evAt&&p.dir===h.dir&&Math.abs((p.t||0)-(h.t||0))<1e4&&p._g===m[1]){(p.evIds=p.evIds||[p.evId]).push(h.evId);continue}
+    if(m){out.push({...h,type:m[1],src:h.src.replace(/ \([^)]+\)$/,''),_g:m[1]})}else out.push(h)}
+  if(out.length!==history.length){history=out.map(({_g,...h})=>h);store.set('history',history)}}
 const saveEv=()=>{events.sort((a,b)=>a.at-b.at);store.set('events',events);try{tgSyncSoon()}catch(e){}};
 saveEv();
 
@@ -1410,7 +1414,7 @@ function showResult(r,ev,evs){evs=evs&&evs.length?evs:[ev];const nm=evs.map(e=>e
    <div class="cta" style="margin-top:22px"><button class="btn small" id="save-an">Save to history</button><button class="btn small ghost" data-go="chart">${r.zones&&r.zones.length?'See zones on chart':'Open chart'}</button></div>
    <p class="fine">Not financial advice.</p></div>`;el.scrollIntoView({behavior:'smooth',block:'start'});
   lastBias={dir:r.dir,conf:r.conf,type:nm,evId:ev.id,evIds:evs.map(e=>e.id),evAt:ev.at,src:r.src,t:Date.now()};store.set('lastBias',lastBias);if(typeof refreshZones==='function')refreshZones();
-  $('#save-an').onclick=()=>{evs.slice().reverse().forEach(e=>history.unshift({id:uid(),t:Date.now(),evId:e.id,type:e.type,evAt:e.at,dir:r.dir,conf:r.conf,src:evs.length>1?r.src+' ('+nm+')':r.src,summary:r.summary,outcome:null}));gradeHistory();try{tgSyncSoon()}catch(e){}store.set('history',history);renderHist();renderRecord();toast('Saved to history');$('#save-an').disabled=true};
+  $('#save-an').onclick=()=>{history.unshift({id:uid(),t:Date.now(),evId:ev.id,...(evs.length>1?{evIds:evs.map(e=>e.id)}:{}),type:nm,evAt:ev.at,dir:r.dir,conf:r.conf,src:r.src,summary:r.summary,outcome:null});gradeHistory();try{tgSyncSoon()}catch(e){}store.set('history',history);renderHist();renderRecord();toast('Saved to history');$('#save-an').disabled=true};
 }
 function curForm(){
   const ev=events.find(e=>e.id===$('#f-ev').value);let evs=[],rowsBy={},toneBy={};
@@ -2474,7 +2478,7 @@ async function tgCall(path,body){
 function tgPayload(){
   const now=Date.now();
   const adj=offMode()==='broker'&&spotOff&&spotOff.src===SOURCES[srcIdx].name?Math.round((pxOffset.val-spotOff.val)*100)/100:0;
-  const biasFor=e=>{const h=history.find(h=>h.evId===e.id&&(h.dir==='Buy'||h.dir==='Sell'));if(h)return{dir:h.dir};
+  const biasFor=e=>{const h=history.find(h=>(h.evId===e.id||(h.evIds||[]).includes(e.id))&&(h.dir==='Buy'||h.dir==='Sell'));if(h)return{dir:h.dir};
     return lastBias&&(lastBias.evId===e.id||(lastBias.evIds||[]).includes(e.id))&&(lastBias.dir==='Buy'||lastBias.dir==='Sell')?{dir:lastBias.dir}:null};
   return{setAt,tomb,brokerTz:BROKER_TZ,sweepOn:tgc.sweep!==false,spike:tgc.spike==null?3:+tgc.spike,recapOn:tgc.recap!==false,reactOn:tgc.react!==false,newsOn:tgc.news,zonesOn:tgc.zones,reportOn:tgc.rep!==false,quietNews,pip,spread,lead,which:za.which,tf:chTf,adj,
     events:events.filter(e=>e.at>now-3*36e5&&e.at<now+60*864e5&&(e.type!=='Claims'||showClaims)).map(e=>{const h=head(e);return{key:e.key||e.id,type:e.type,name:e.name||NAMES[e.type]||e.type,at:e.at,fc:h.fc||'',pv:h.pv||'',bias:biasFor(e)}}),
@@ -2800,7 +2804,7 @@ if('serviceWorker' in navigator&&isSecureContext&&location.protocol!=='file:'){n
     const e=events.find(x=>QUIET_TYPES.has(x.type)&&now>=x.at-5*6e4&&now<=x.at+15*6e4);
     if(!e){if(!el.hidden){el.hidden=true;el.innerHTML='';last=''}return}
     const same=events.filter(x=>QUIET_TYPES.has(x.type)&&Math.round(x.at/6e4)===Math.round(e.at/6e4)),nmName=same.length>1?same.map(x=>x.type).join(' + '):(e.name||e.type);
-    const h=head(e),px=lastPx,pre=nmPre[e.id],b=history.find(x=>x.evId===e.id&&(x.dir==='Buy'||x.dir==='Sell'))||(lastBias&&(lastBias.evId===e.id||(lastBias.evIds||[]).includes(e.id))?lastBias:null);
+    const h=head(e),px=lastPx,pre=nmPre[e.id],b=history.find(x=>(x.evId===e.id||(x.evIds||[]).includes(e.id))&&(x.dir==='Buy'||x.dir==='Sell'))||(lastBias&&(lastBias.evId===e.id||(lastBias.evIds||[]).includes(e.id))?lastBias:null);
     let html;
     if(now<e.at){ // before: countdown, remember the price just before the release
       if(px!=null){nmPre[e.id]={p:px,hi:px,lo:px,at:now};for(const k in nmPre)if(now-nmPre[k].at>864e5)delete nmPre[k];store.set('nmPre',nmPre)}
